@@ -1,6 +1,82 @@
-<?xml version="1.0" encoding="utf-8"?>
-<org.osmdroid.views.MapView
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/map"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent" />
+    android:layout_height="match_parent">
+
+    <!-- Map -->
+    <org.osmdroid.views.MapView
+        android:id="@+id/map"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- FLOATING TOP CARD -->
+    <LinearLayout
+        android:id="@+id/topPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:layout_marginTop="45dp"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:background="@drawable/bg_card"
+        android:elevation="12dp">
+
+
+    <!-- CURRENT LOCATION (SUBTLE) -->
+        <TextView
+            android:id="@+id/txtCurrentLocation"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📍 Current location"
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <!-- DESTINATION (PRIMARY) -->
+        <TextView
+            android:id="@+id/txtDestination"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Where to?"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/black"
+            android:layout_marginTop="6dp"
+            android:maxLines="2"
+            android:ellipsize="end" />
+
+        <!-- SEARCH -->
+        <AutoCompleteTextView
+            android:id="@+id/searchLocation"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:padding="10dp"
+            android:hint="Search destination"
+            android:background="@drawable/bg_input"
+
+            android:singleLine="true"
+            android:imeOptions="actionSearch"
+            android:inputType="text"
+            android:focusable="true"
+            android:focusableInTouchMode="true" />
+
+
+
+        <!-- ROUTE BUTTON (COMPACT, CONNECTED) -->
+        <Button
+            android:id="@+id/btnRoute"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Show Route"
+            android:layout_marginTop="10dp"
+            android:paddingHorizontal="24dp"
+            android:backgroundTint="@color/purple_500"
+            android:textColor="@android:color/white"
+            android:layout_gravity="end" />
+
+    </LinearLayout>
+
+</FrameLayout>

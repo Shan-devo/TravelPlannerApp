@@ -2,26 +2,48 @@ package com.example.travelplannerapp.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.location.Location
 import android.os.Bundle
+import android.view.KeyEvent
+import android.view.inputmethod.EditorInfo
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.widget.doAfterTextChanged
+import androidx.lifecycle.lifecycleScope
 import com.example.travelplannerapp.R
+import kotlinx.coroutines.*
+import org.json.JSONArray
+import org.json.JSONObject
 import org.osmdroid.config.Configuration
+import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.*
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
-import org.osmdroid.views.overlay.MapEventsOverlay
-import org.osmdroid.events.MapEventsReceiver
+import java.net.URL
+import java.net.URLEncoder
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var map: MapView
+
     private var locationOverlay: MyLocationNewOverlay? = null
+    private var currentLocation: GeoPoint? = null
+
     private var destinationMarker: Marker? = null
+    private var routeLine: Polyline? = null
+
+    private lateinit var txtCurrentLocation: TextView
+    private lateinit var txtDestination: TextView
+    private lateinit var searchBox: AutoCompleteTextView
+    private lateinit var searchAdapter: ArrayAdapter<String>
+
+    private val searchResults = mutableListOf<Pair<String, GeoPoint>>()
+    private var debounceJob: Job? = null
 
     companion object {
         private const val LOCATION_REQUEST_CODE = 200
@@ -30,7 +52,6 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // OSMDroid configuration (MANDATORY)
         Configuration.getInstance().load(
             applicationContext,
             getSharedPreferences("osmdroid", MODE_PRIVATE)
@@ -40,110 +61,305 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         map = findViewById(R.id.map)
+        txtCurrentLocation = findViewById(R.id.txtCurrentLocation)
+        txtDestination = findViewById(R.id.txtDestination)
+        searchBox = findViewById(R.id.searchLocation)
+
+        setupMap()
+        setupSearch()
+        setupRouteButton()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        map.onResume()
+        checkLocationPermission()
+    }
+
+    override fun onPause() {
+        locationOverlay?.disableMyLocation()
+        map.onPause()
+        super.onPause()
+    }
+
+    /* ================= MAP ================= */
+
+    private fun setupMap() {
         map.setTileSource(TileSourceFactory.MAPNIK)
         map.setMultiTouchControls(true)
-        map.setUseDataConnection(true) // ✅ stability
+        map.controller.setZoom(16.0)
 
-        // Default view (India)
-        val india = GeoPoint(20.5937, 78.9629)
-        map.controller.setZoom(5.0)
-        map.controller.setCenter(india)
+        map.overlays.add(
+            MapEventsOverlay(this, object : MapEventsReceiver {
+                override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
+                    setDestination(
+                        p,
+                        "Lat: %.5f, Lon: %.5f".format(p.latitude, p.longitude)
+                    )
+                    return true
+                }
+                override fun longPressHelper(p: GeoPoint) = false
+            })
+        )
+    }
 
-        checkLocationPermission()
+    /* ================= LOCATION ================= */
 
-        // SAFE map tap handling
-        val mapEventsReceiver = object : MapEventsReceiver {
-            override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
-                addDestinationMarker(p)
-                return true
-            }
+    private fun setupUserLocation() {
+        if (locationOverlay != null) return
 
-            override fun longPressHelper(p: GeoPoint): Boolean {
-                return false
+        val provider = object : GpsMyLocationProvider(this) {
+            override fun onLocationChanged(location: Location) {
+                super.onLocationChanged(location)
+                currentLocation = GeoPoint(location.latitude, location.longitude)
+
+                runOnUiThread {
+                    txtCurrentLocation.text =
+                        "📍 %.5f, %.5f".format(location.latitude, location.longitude)
+                }
             }
         }
 
-        map.overlays.add(MapEventsOverlay(this, mapEventsReceiver))
+        val icon = drawableToBitmap(R.drawable.ic_my_location)
+
+        locationOverlay = MyLocationNewOverlay(provider, map).apply {
+            enableMyLocation()
+            enableFollowLocation()
+            setPersonIcon(icon)
+            setDirectionArrow(icon, icon)
+
+            runOnFirstFix {
+                myLocation?.let {
+                    currentLocation = it
+                    runOnUiThread { map.controller.animateTo(it) }
+                }
+            }
+        }
+
+        map.overlays.add(locationOverlay)
+        map.invalidate()
     }
 
-    private fun addDestinationMarker(point: GeoPoint) {
+    private fun checkLocationPermission() {
+        if (ContextCompat.checkSelfPermission(
+                this, Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            setupUserLocation()
+        } else {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                LOCATION_REQUEST_CODE
+            )
+        }
+    }
+
+    /* ================= SEARCH ================= */
+
+    private fun setupSearch() {
+        searchAdapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_dropdown_item_1line,
+            mutableListOf()
+        )
+
+        searchBox.setAdapter(searchAdapter)
+        searchBox.threshold = 1
+
+        searchBox.doAfterTextChanged { text ->
+            debounceJob?.cancel()
+            val query = text.toString().trim()
+            if (query.length < 2) return@doAfterTextChanged
+
+            debounceJob = lifecycleScope.launch {
+                delay(350)
+                fetchSuggestions(query)
+            }
+        }
+
+        searchBox.setOnItemClickListener { _, _, position, _ ->
+            val (name, point) = searchResults[position]
+            setDestination(point, name)
+        }
+
+        searchBox.setOnEditorActionListener { v, actionId, event ->
+            val isEnter =
+                actionId == EditorInfo.IME_ACTION_SEARCH ||
+                        actionId == EditorInfo.IME_ACTION_DONE ||
+                        (event?.keyCode == KeyEvent.KEYCODE_ENTER)
+
+            if (isEnter) {
+                val query = v.text.toString().trim()
+                if (query.isNotEmpty()) {
+                    resolveSearchAndSetDestination(query)
+                }
+                true
+            } else false
+        }
+    }
+
+    private fun fetchSuggestions(query: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val url =
+                    "https://nominatim.openstreetmap.org/search?q=" +
+                            URLEncoder.encode(query, "UTF-8") +
+                            "&format=json&limit=5"
+
+                val response = URL(url).readText()
+                val array = JSONArray(response)
+
+                val names = mutableListOf<String>()
+                searchResults.clear()
+
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    val name = obj.getString("display_name")
+                    val lat = obj.getDouble("lat")
+                    val lon = obj.getDouble("lon")
+
+                    names.add(name)
+                    searchResults.add(name to GeoPoint(lat, lon))
+                }
+
+                withContext(Dispatchers.Main) {
+                    searchAdapter.clear()
+                    searchAdapter.addAll(names)
+                    searchAdapter.notifyDataSetChanged()
+                    if (names.isNotEmpty()) searchBox.showDropDown()
+                }
+
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun resolveSearchAndSetDestination(query: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val url =
+                    "https://nominatim.openstreetmap.org/search?q=" +
+                            URLEncoder.encode(query, "UTF-8") +
+                            "&format=json&limit=1"
+
+                val response = URL(url).readText()
+                val arr = JSONArray(response)
+
+                if (arr.length() == 0) {
+                    withContext(Dispatchers.Main) {
+                        toast("Location not found")
+                    }
+                    return@launch
+                }
+
+                val obj = arr.getJSONObject(0)
+                val name = obj.getString("display_name")
+                val point = GeoPoint(obj.getDouble("lat"), obj.getDouble("lon"))
+
+                withContext(Dispatchers.Main) {
+                    setDestination(point, name)
+                }
+
+            } catch (_: Exception) {
+                withContext(Dispatchers.Main) {
+                    toast("Search failed")
+                }
+            }
+        }
+    }
+
+    /* ================= DESTINATION ================= */
+
+    private fun setDestination(point: GeoPoint, label: String) {
         destinationMarker?.let { map.overlays.remove(it) }
 
         destinationMarker = Marker(map).apply {
             position = point
-            title = "Selected Destination"
+            title = label
             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
         }
 
         map.overlays.add(destinationMarker)
         map.controller.animateTo(point)
         map.invalidate()
+
+        txtDestination.text = "📌 $label"
+        searchBox.setText("")
+        searchBox.clearFocus()
     }
 
-    private fun setupUserLocation() {
-        if (locationOverlay != null) return
+    /* ================= ROUTE ================= */
 
-        locationOverlay = MyLocationNewOverlay(
-            GpsMyLocationProvider(this),
-            map
-        ).apply {
-            enableMyLocation()
-            // ❌ do NOT enableFollowLocation → causes crashes
-        }
+    private fun setupRouteButton() {
+        findViewById<Button>(R.id.btnRoute).setOnClickListener {
+            val start = currentLocation
+            val end = destinationMarker?.position
 
-        map.overlays.add(locationOverlay)
-    }
-
-    private fun checkLocationPermission() {
-        val fine = ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        val coarse = ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        if (fine || coarse) {
-            setupUserLocation()
-        } else {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                ),
-                LOCATION_REQUEST_CODE
-            )
+            if (start == null || end == null) {
+                toast("Waiting for GPS or destination")
+            } else {
+                drawRoute(start, end)
+            }
         }
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    private fun drawRoute(start: GeoPoint, end: GeoPoint) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val url =
+                    "https://router.project-osrm.org/route/v1/driving/" +
+                            "${start.longitude},${start.latitude};" +
+                            "${end.longitude},${end.latitude}" +
+                            "?overview=full&geometries=geojson"
 
-        if (requestCode == LOCATION_REQUEST_CODE &&
-            grantResults.any { it == PackageManager.PERMISSION_GRANTED }
-        ) {
-            setupUserLocation()
+                val json = JSONObject(URL(url).readText())
+                val coords =
+                    json.getJSONArray("routes")
+                        .getJSONObject(0)
+                        .getJSONObject("geometry")
+                        .getJSONArray("coordinates")
+
+                val points = ArrayList<GeoPoint>()
+                for (i in 0 until coords.length()) {
+                    val c = coords.getJSONArray(i)
+                    points.add(GeoPoint(c.getDouble(1), c.getDouble(0)))
+                }
+
+                withContext(Dispatchers.Main) {
+                    routeLine?.let { map.overlays.remove(it) }
+                    routeLine = Polyline().apply {
+                        outlinePaint.color = android.graphics.Color.BLUE
+                        outlinePaint.strokeWidth = 8f
+                        setPoints(points)
+                    }
+                    map.overlays.add(routeLine)
+                    map.invalidate()
+                }
+
+            } catch (_: Exception) {
+                withContext(Dispatchers.Main) {
+                    toast("Route failed")
+                }
+            }
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        if (::map.isInitialized) {
-            map.onResume()
-        }
+    /* ================= UTILS ================= */
+
+    private fun drawableToBitmap(id: Int): android.graphics.Bitmap {
+        val d = resources.getDrawable(id, null)
+        val b = android.graphics.Bitmap.createBitmap(
+            d.intrinsicWidth,
+            d.intrinsicHeight,
+            android.graphics.Bitmap.Config.ARGB_8888
+        )
+        val c = android.graphics.Canvas(b)
+        d.setBounds(0, 0, c.width, c.height)
+        d.draw(c)
+        return b
     }
 
-    override fun onPause() {
-        if (::map.isInitialized) {
-            map.onPause()
-        }
-        super.onPause()
+    private fun toast(msg: String) {
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
     }
 }

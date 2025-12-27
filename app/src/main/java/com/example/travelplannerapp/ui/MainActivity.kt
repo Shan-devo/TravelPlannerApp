@@ -26,6 +26,7 @@ import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 import java.net.URL
 import java.net.URLEncoder
+import android.view.inputmethod.InputMethodManager;
 
 class MainActivity : AppCompatActivity() {
 
@@ -124,9 +125,7 @@ class MainActivity : AppCompatActivity() {
 
         locationOverlay = MyLocationNewOverlay(provider, map).apply {
             enableMyLocation()
-            enableFollowLocation()
             setPersonIcon(icon)
-            setDirectionArrow(icon, icon)
 
             runOnFirstFix {
                 myLocation?.let {
@@ -160,9 +159,11 @@ class MainActivity : AppCompatActivity() {
     private fun setupSearch() {
         searchAdapter = ArrayAdapter(
             this,
-            android.R.layout.simple_dropdown_item_1line,
+            R.layout.item_search_suggestion,
+            R.id.txtTitle,
             mutableListOf()
         )
+
 
         searchBox.setAdapter(searchAdapter)
         searchBox.threshold = 1
@@ -202,12 +203,26 @@ class MainActivity : AppCompatActivity() {
     private fun fetchSuggestions(query: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val url =
-                    "https://nominatim.openstreetmap.org/search?q=" +
-                            URLEncoder.encode(query, "UTF-8") +
+                val urlString =
+                    "https://nominatim.openstreetmap.org/search" +
+                            "?q=${URLEncoder.encode(query, "UTF-8")}" +
                             "&format=json&limit=5"
 
-                val response = URL(url).readText()
+                val connection = URL(urlString).openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 10_000
+                connection.readTimeout = 10_000
+
+                // 🔴 THIS IS MANDATORY
+                connection.setRequestProperty(
+                    "User-Agent",
+                    "TravelPlannerApp/1.0 (your@email.com)"
+                )
+
+                val response = connection.inputStream
+                    .bufferedReader()
+                    .use { it.readText() }
+
                 val array = JSONArray(response)
 
                 val names = mutableListOf<String>()
@@ -227,10 +242,25 @@ class MainActivity : AppCompatActivity() {
                     searchAdapter.clear()
                     searchAdapter.addAll(names)
                     searchAdapter.notifyDataSetChanged()
-                    if (names.isNotEmpty()) searchBox.showDropDown()
+
+                    if (names.isNotEmpty()) {
+                        searchBox.requestFocus()          // 🔴 REQUIRED
+                        searchBox.post {
+                            searchBox.showDropDown()      // 🔴 REQUIRED
+                        }
+                    }
                 }
 
-            } catch (_: Exception) {}
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Search error: ${e.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
         }
     }
 
@@ -281,6 +311,10 @@ class MainActivity : AppCompatActivity() {
 
         map.overlays.add(destinationMarker)
         map.controller.animateTo(point)
+        hideKeyboard();
+        searchAdapter.clear()
+        searchAdapter.notifyDataSetChanged()
+        searchResults.clear()
         map.invalidate()
 
         txtDestination.text = "📌 $label"
@@ -362,4 +396,10 @@ class MainActivity : AppCompatActivity() {
     private fun toast(msg: String) {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
     }
+
+    private fun hideKeyboard() {
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(searchBox.windowToken, 0)
+    }
+
 }

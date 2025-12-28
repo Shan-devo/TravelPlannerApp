@@ -24,10 +24,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mapController: MapController
     private lateinit var locationController: LocationController
     private lateinit var searchController: SearchController
-
     private lateinit var txtWeather: TextView
-
     private val weatherController = WeatherController()
+
+    private lateinit var imgWeather: ImageView
 
     companion object {
         private const val LOCATION_REQUEST_CODE = 101
@@ -81,7 +81,12 @@ class MainActivity : AppCompatActivity() {
             Utility.hideKeyboard(this, searchBox.windowToken)
 
             lifecycleScope.launch {
-                txtWeather.text = weatherController.getWeather(point)
+                val weather = weatherController.getWeather(point)
+
+                txtWeather.text = "${weather.temperature}°C"
+                imgWeather.setImageResource(
+                    Utility.weatherIcon(weather.symbolCode)
+                )
             }
         }
 
@@ -112,6 +117,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         txtWeather = findViewById(R.id.txtWeather)
+
+        imgWeather = findViewById(R.id.imgWeather)
+
     }
 
     override fun onResume() {

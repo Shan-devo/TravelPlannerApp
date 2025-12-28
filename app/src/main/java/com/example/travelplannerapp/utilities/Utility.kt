@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.inputmethod.InputMethodManager
 import androidx.core.content.ContextCompat
+import com.example.travelplannerapp.R
 
 object Utility {
 
@@ -27,4 +28,17 @@ object Utility {
         drawable.draw(canvas)
         return bitmap
     }
+
+     fun weatherIcon(symbol: String): Int {
+        return when {
+            symbol.contains("clearsky") -> R.drawable.ic_weather_sun
+            symbol.contains("partlycloudy") -> R.drawable.ic_weather_cloud
+            symbol.contains("cloudy") -> R.drawable.ic_weather_cloud
+            symbol.contains("rain") -> R.drawable.ic_weather_rain
+            symbol.contains("snow") -> R.drawable.ic_weather_snow
+            symbol.contains("fog") -> R.drawable.ic_weather_fog
+            else -> R.drawable.ic_weather_cloud
+        }
+    }
+
 }

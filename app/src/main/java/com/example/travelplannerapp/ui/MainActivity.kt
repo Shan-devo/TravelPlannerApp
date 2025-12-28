@@ -12,7 +12,9 @@ import com.example.travelplannerapp.R
 import com.example.travelplannerapp.controller.LocationController
 import com.example.travelplannerapp.controller.MapController
 import com.example.travelplannerapp.controller.SearchController
+import com.example.travelplannerapp.controller.WeatherController
 import com.example.travelplannerapp.utilities.Utility
+import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
 import org.osmdroid.views.MapView
 
@@ -22,6 +24,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mapController: MapController
     private lateinit var locationController: LocationController
     private lateinit var searchController: SearchController
+
+    private lateinit var txtWeather: TextView
+
+    private val weatherController = WeatherController()
 
     companion object {
         private const val LOCATION_REQUEST_CODE = 101
@@ -62,15 +68,24 @@ class MainActivity : AppCompatActivity() {
                 point,
                 "Lat: %.5f, Lon: %.5f".format(point.latitude, point.longitude)
             )
-            txtDest.text = "📌 Selected location"
+            if(!mapController.isRouteShowing()) {
+                txtDest.text = "📌 Selected location"
+            }
         }
+
 
         // ✅ Search → destination
         searchController.setup { point, label ->
             mapController.setDestination(point, label)
             txtDest.text = "📌 $label"
             Utility.hideKeyboard(this, searchBox.windowToken)
+
+            lifecycleScope.launch {
+                txtWeather.text = weatherController.getWeather(point)
+            }
         }
+
+
         val btnRoute = findViewById<Button>(R.id.btnRoute)
         btnRoute.setOnClickListener {
             val start = locationController.currentLocation
@@ -87,6 +102,16 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        val btnClear = findViewById<Button>(R.id.btnClearRoute)
+
+        btnClear.setOnClickListener {
+            mapController.clearRoute()
+            Toast.makeText(this, "Route cleared", Toast.LENGTH_SHORT).show()
+            txtWeather.text = "🌤 Weather"
+            txtDest.text = "Where to?"
+        }
+
+        txtWeather = findViewById(R.id.txtWeather)
     }
 
     override fun onResume() {

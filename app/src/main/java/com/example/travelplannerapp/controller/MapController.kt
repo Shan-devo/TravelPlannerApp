@@ -13,6 +13,8 @@ class MapController(private val map: MapView) {
     private var destinationMarker: Marker? = null
     private var routeLine: Polyline? = null
 
+    private var isRouteActive = false
+
     fun setup(onMapTap: (GeoPoint) -> Unit) {
         map.setTileSource(TileSourceFactory.MAPNIK)
         map.setMultiTouchControls(true)
@@ -35,6 +37,8 @@ class MapController(private val map: MapView) {
     }
 
     fun setDestination(point: GeoPoint, label: String) {
+        if (isRouteActive) return   // 🔴 LOCK DESTINATION
+
         destinationMarker?.let { map.overlays.remove(it) }
 
         destinationMarker = Marker(map).apply {
@@ -47,6 +51,7 @@ class MapController(private val map: MapView) {
         map.controller.animateTo(point)
         map.invalidate()
     }
+
 
     fun drawRoute(start: GeoPoint, end: GeoPoint) {
         Thread {
@@ -82,6 +87,7 @@ class MapController(private val map: MapView) {
                     map.overlays.add(routeLine)
                     map.invalidate()
                 }
+                isRouteActive = true
 
             } catch (_: Exception) {}
         }.start()
@@ -89,6 +95,17 @@ class MapController(private val map: MapView) {
 
     fun getDestination(): GeoPoint? {
         return destinationMarker?.position
+    }
+
+    fun isRouteShowing(): Boolean = isRouteActive
+
+    fun clearRoute() {
+        routeLine?.let {
+            map.overlays.remove(it)
+            routeLine = null
+        }
+        isRouteActive = false
+        map.invalidate()
     }
 
 }

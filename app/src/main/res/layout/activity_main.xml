@@ -50,6 +50,18 @@
             android:maxLines="2"
             android:ellipsize="end" />
 
+        <!-- Weather (ADD HERE) -->
+        <TextView
+            android:id="@+id/txtWeather"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🌤 Weather"
+            android:textSize="13sp"
+            android:textColor="#444444"
+            android:layout_marginTop="4dp"
+            android:maxLines="1"
+            android:ellipsize="end"/>
+
         <!-- SEARCH -->
         <AutoCompleteTextView
             android:id="@+id/searchLocation"
@@ -66,19 +78,43 @@
             android:focusable="true"
             android:focusableInTouchMode="true" />
 
-
-
-        <!-- ROUTE BUTTON (COMPACT, CONNECTED) -->
-        <Button
-            android:id="@+id/btnRoute"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Show Route"
-            android:layout_marginTop="10dp"
-            android:paddingHorizontal="24dp"
-            android:backgroundTint="@color/purple_500"
-            android:textColor="@android:color/white"
-            android:layout_gravity="end" />
+            android:orientation="horizontal"
+            android:layout_marginTop="10dp">
+
+            <Button
+                android:id="@+id/btnRoute"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Show Route"
+                android:background="@drawable/button_bg_card"
+                android:backgroundTint="@null"
+                android:stateListAnimator="@null"
+                android:paddingHorizontal="24dp"
+                android:textColor="@android:color/white"/>
+
+            <!-- Spacer -->
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1"/>
+
+            <Button
+                android:id="@+id/btnClearRoute"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Clear"
+                android:background="@drawable/button_bg_card"
+                android:backgroundTint="@null"
+                android:stateListAnimator="@null"
+                android:paddingHorizontal="24dp"
+                android:textColor="@android:color/white"/>
+
+        </LinearLayout>
+
+
 
     </LinearLayout>
 

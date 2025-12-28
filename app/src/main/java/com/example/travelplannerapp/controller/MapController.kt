@@ -1,5 +1,6 @@
 package com.example.travelplannerapp.controller
 
+import com.example.travelplannerapp.data.RouteInfo
 import org.json.JSONObject
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -12,7 +13,6 @@ class MapController(private val map: MapView) {
 
     private var destinationMarker: Marker? = null
     private var routeLine: Polyline? = null
-
     private var isRouteActive = false
 
     fun setup(onMapTap: (GeoPoint) -> Unit) {
@@ -20,16 +20,14 @@ class MapController(private val map: MapView) {
         map.setMultiTouchControls(true)
         map.controller.setZoom(16.0)
 
-        // 🔴 MUST pass context
         map.overlays.add(
             MapEventsOverlay(
                 map.context,
                 object : MapEventsReceiver {
                     override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
-                        onMapTap(p)
+                        if (!isRouteActive) onMapTap(p)
                         return true
                     }
-
                     override fun longPressHelper(p: GeoPoint) = false
                 }
             )
@@ -37,7 +35,7 @@ class MapController(private val map: MapView) {
     }
 
     fun setDestination(point: GeoPoint, label: String) {
-        if (isRouteActive) return   // 🔴 LOCK DESTINATION
+        if (isRouteActive) return
 
         destinationMarker?.let { map.overlays.remove(it) }
 
@@ -52,8 +50,12 @@ class MapController(private val map: MapView) {
         map.invalidate()
     }
 
-
-    fun drawRoute(start: GeoPoint, end: GeoPoint) {
+    fun drawRoute(
+        start: GeoPoint,
+        end: GeoPoint,
+        onRouteReady: (RouteInfo) -> Unit,
+        onError: () -> Unit
+    ) {
         Thread {
             try {
                 val url =
@@ -63,11 +65,14 @@ class MapController(private val map: MapView) {
                             "?overview=full&geometries=geojson"
 
                 val json = JSONObject(URL(url).readText())
-                val coords =
-                    json.getJSONArray("routes")
-                        .getJSONObject(0)
-                        .getJSONObject("geometry")
-                        .getJSONArray("coordinates")
+                val route = json.getJSONArray("routes").getJSONObject(0)
+
+                val distance = route.getDouble("distance")
+                val duration = route.getDouble("duration")
+
+                val coords = route
+                    .getJSONObject("geometry")
+                    .getJSONArray("coordinates")
 
                 val points = ArrayList<GeoPoint>()
                 for (i in 0 until coords.length()) {
@@ -86,26 +91,66 @@ class MapController(private val map: MapView) {
 
                     map.overlays.add(routeLine)
                     map.invalidate()
+                    isRouteActive = true
+
+                    onRouteReady(
+                        RouteInfo(
+                            profile = "driving",
+                            distanceKm = distance,
+                            durationMin = duration.toInt()
+                        )
+                    )
                 }
-                isRouteActive = true
+
+            } catch (e: Exception) {
+                map.post { onError() }
+            }
+        }.start()
+    }
+
+    fun fetchRouteInfo(
+        start: GeoPoint,
+        end: GeoPoint,
+        onResult: (List<RouteInfo>) -> Unit
+    ) {
+        val profiles = listOf("driving", "foot", "bike")
+        val results = mutableListOf<RouteInfo>()
+
+        Thread {
+            try {
+                for (profile in profiles) {
+                    val url =
+                        "https://router.project-osrm.org/route/v1/$profile/" +
+                                "${start.longitude},${start.latitude};" +
+                                "${end.longitude},${end.latitude}" +
+                                "?overview=false"
+
+                    val json = JSONObject(URL(url).readText())
+                    val route = json.getJSONArray("routes").getJSONObject(0)
+
+                    results.add(
+                        RouteInfo(
+                            profile = profile,
+                            durationMin = (route.getDouble("duration") / 60).toInt(),
+                            distanceKm = route.getDouble("distance") / 1000.0
+                        )
+                    )
+                }
+
+                map.post { onResult(results) }
 
             } catch (_: Exception) {}
         }.start()
     }
 
-    fun getDestination(): GeoPoint? {
-        return destinationMarker?.position
-    }
+    fun getDestination(): GeoPoint? = destinationMarker?.position
 
     fun isRouteShowing(): Boolean = isRouteActive
 
     fun clearRoute() {
-        routeLine?.let {
-            map.overlays.remove(it)
-            routeLine = null
-        }
+        routeLine?.let { map.overlays.remove(it) }
+        routeLine = null
         isRouteActive = false
         map.invalidate()
     }
-
 }

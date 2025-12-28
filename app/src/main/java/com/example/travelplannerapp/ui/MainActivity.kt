@@ -9,10 +9,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.travelplannerapp.R
-import com.example.travelplannerapp.controller.LocationController
-import com.example.travelplannerapp.controller.MapController
-import com.example.travelplannerapp.controller.SearchController
-import com.example.travelplannerapp.controller.WeatherController
+import com.example.travelplannerapp.controller.*
 import com.example.travelplannerapp.utilities.Utility
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
@@ -20,14 +17,19 @@ import org.osmdroid.views.MapView
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var map: MapView
     private lateinit var mapController: MapController
     private lateinit var locationController: LocationController
     private lateinit var searchController: SearchController
-    private lateinit var txtWeather: TextView
-    private val weatherController = WeatherController()
 
+    private lateinit var txtWeather: TextView
     private lateinit var imgWeather: ImageView
+
+    private lateinit var bottomRouteInfo: LinearLayout
+    private lateinit var txtCar: TextView
+    private lateinit var txtWalk: TextView
+    private lateinit var txtBike: TextView
+
+    private val weatherController = WeatherController()
 
     companion object {
         private const val LOCATION_REQUEST_CODE = 101
@@ -36,7 +38,6 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ✅ OSMDroid config (MANDATORY)
         Configuration.getInstance().load(
             applicationContext,
             getSharedPreferences("osmdroid", MODE_PRIVATE)
@@ -45,13 +46,21 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
-        // ✅ Bind views AFTER setContentView
-        map = findViewById(R.id.map)
+        val map = findViewById<MapView>(R.id.map)
         val txtCurrent = findViewById<TextView>(R.id.txtCurrentLocation)
         val txtDest = findViewById<TextView>(R.id.txtDestination)
         val searchBox = findViewById<AutoCompleteTextView>(R.id.searchLocation)
 
-        // ✅ Controllers
+        txtWeather = findViewById(R.id.txtWeather)
+        imgWeather = findViewById(R.id.imgWeather)
+
+        bottomRouteInfo = findViewById(R.id.bottomRouteInfo)
+        bottomRouteInfo = findViewById(R.id.bottomRouteInfo)
+        txtCar = findViewById(R.id.txtCar)
+        txtWalk = findViewById(R.id.txtWalk)
+        txtBike = findViewById(R.id.txtBike)
+
+
         mapController = MapController(map)
 
         locationController = LocationController(
@@ -62,27 +71,19 @@ class MainActivity : AppCompatActivity() {
 
         searchController = SearchController(searchBox, lifecycleScope)
 
-        // ✅ Map tap → destination
         mapController.setup { point ->
-            mapController.setDestination(
-                point,
-                "Lat: %.5f, Lon: %.5f".format(point.latitude, point.longitude)
-            )
-            if(!mapController.isRouteShowing()) {
-                txtDest.text = "📌 Selected location"
-            }
+            mapController.setDestination(point, "Selected location")
+            txtDest.text = "📌 Selected location"
         }
 
-
-        // ✅ Search → destination
         searchController.setup { point, label ->
             mapController.setDestination(point, label)
             txtDest.text = "📌 $label"
+
             Utility.hideKeyboard(this, searchBox.windowToken)
 
             lifecycleScope.launch {
                 val weather = weatherController.getWeather(point)
-
                 txtWeather.text = "${weather.temperature}°C"
                 imgWeather.setImageResource(
                     Utility.weatherIcon(weather.symbolCode)
@@ -90,51 +91,69 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-
-        val btnRoute = findViewById<Button>(R.id.btnRoute)
-        btnRoute.setOnClickListener {
+        findViewById<Button>(R.id.btnRoute).setOnClickListener {
             val start = locationController.currentLocation
             val end = mapController.getDestination()
 
             if (start == null || end == null) {
-                Toast.makeText(
-                    this,
-                    "Waiting for GPS or destination",
-                    Toast.LENGTH_SHORT
-                ).show()
-            } else {
-                mapController.drawRoute(start, end)
+                Toast.makeText(this, "Waiting for GPS or destination", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
             }
+
+            mapController.drawRoute(
+                start,
+                end,
+                onRouteReady = {
+                    // route drawn (car)
+                },
+                onError = {
+                    Toast.makeText(this, "Route failed", Toast.LENGTH_SHORT).show()
+                }
+            )
+
+            // 🔥 Fetch ALL transport ETAs
+            mapController.fetchRouteInfo(start, end) { routes ->
+
+                for (route in routes) {
+                    val durationText = Utility.formatDuration(route.durationMin.toInt())
+                    val distanceText = "%.1f km".format(route.distanceKm)
+
+                    when (route.profile) {
+                        "driving" -> {
+                            txtCar.text = "$durationText • $distanceText"
+                        }
+                        "foot" -> {
+                            txtWalk.text = "$durationText • $distanceText"
+                        }
+                        "bike" -> {
+                            txtBike.text = "$durationText • $distanceText"
+                        }
+                    }
+                }
+
+                bottomRouteInfo.visibility = LinearLayout.VISIBLE
+            }
+
+
         }
 
-        val btnClear = findViewById<Button>(R.id.btnClearRoute)
-
-        btnClear.setOnClickListener {
+        findViewById<Button>(R.id.btnClearRoute).setOnClickListener {
             mapController.clearRoute()
-            Toast.makeText(this, "Route cleared", Toast.LENGTH_SHORT).show()
-            txtWeather.text = "🌤 Weather"
+            bottomRouteInfo.visibility = LinearLayout.GONE
             txtDest.text = "Where to?"
+            txtWeather.text = "🌤 Weather"
         }
-
-        txtWeather = findViewById(R.id.txtWeather)
-
-        imgWeather = findViewById(R.id.imgWeather)
-
     }
 
     override fun onResume() {
         super.onResume()
-        map.onResume()            // 🔴 REQUIRED
         checkLocationPermission()
     }
 
     override fun onPause() {
         locationController.stop()
-        map.onPause()             // 🔴 REQUIRED
         super.onPause()
     }
-
-    /* ================= PERMISSION ================= */
 
     private fun checkLocationPermission() {
         if (ContextCompat.checkSelfPermission(
@@ -149,21 +168,6 @@ class MainActivity : AppCompatActivity() {
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
                 LOCATION_REQUEST_CODE
             )
-        }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-
-        if (requestCode == LOCATION_REQUEST_CODE &&
-            grantResults.isNotEmpty() &&
-            grantResults[0] == PackageManager.PERMISSION_GRANTED
-        ) {
-            locationController.start(this)
         }
     }
 }

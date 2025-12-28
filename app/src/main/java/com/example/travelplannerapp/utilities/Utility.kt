@@ -41,4 +41,15 @@ object Utility {
         }
     }
 
+    fun formatDuration(minutes: Int): String {
+        return if (minutes < 60) {
+            "$minutes min"
+        } else {
+            val hrs = minutes / 60
+            val mins = minutes % 60
+            if (mins == 0) "$hrs hr"
+            else "${hrs} hr ${mins} min"
+        }
+    }
+
 }

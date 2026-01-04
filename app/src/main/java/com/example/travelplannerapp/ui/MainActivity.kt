@@ -1,6 +1,7 @@
 package com.example.travelplannerapp.ui
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.*
@@ -10,6 +11,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.travelplannerapp.R
 import com.example.travelplannerapp.controller.*
+import com.example.travelplannerapp.data.FavoriteRoute
+import com.example.travelplannerapp.utilities.FavoritesDbHelper
 import com.example.travelplannerapp.utilities.Utility
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
@@ -23,11 +26,15 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var txtWeather: TextView
     private lateinit var imgWeather: ImageView
+    private lateinit var txtDestination: TextView
 
     private lateinit var bottomRouteInfo: LinearLayout
     private lateinit var txtCar: TextView
     private lateinit var txtWalk: TextView
     private lateinit var txtBike: TextView
+
+    private lateinit var btnSave: Button
+    private lateinit var favoritesDb: FavoritesDbHelper
 
     private val weatherController = WeatherController()
 
@@ -38,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // ✅ OSMDroid config
         Configuration.getInstance().load(
             applicationContext,
             getSharedPreferences("osmdroid", MODE_PRIVATE)
@@ -46,20 +54,26 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
+        /* -------------------- VIEWS -------------------- */
+
         val map = findViewById<MapView>(R.id.map)
         val txtCurrent = findViewById<TextView>(R.id.txtCurrentLocation)
-        val txtDest = findViewById<TextView>(R.id.txtDestination)
+        txtDestination = findViewById(R.id.txtDestination)
         val searchBox = findViewById<AutoCompleteTextView>(R.id.searchLocation)
 
         txtWeather = findViewById(R.id.txtWeather)
         imgWeather = findViewById(R.id.imgWeather)
 
         bottomRouteInfo = findViewById(R.id.bottomRouteInfo)
-        bottomRouteInfo = findViewById(R.id.bottomRouteInfo)
         txtCar = findViewById(R.id.txtCar)
         txtWalk = findViewById(R.id.txtWalk)
         txtBike = findViewById(R.id.txtBike)
 
+        val btnRoute = findViewById<Button>(R.id.btnRoute)
+        val btnClear = findViewById<Button>(R.id.btnClearRoute)
+        btnSave = findViewById(R.id.btnSave)
+
+        /* -------------------- CONTROLLERS -------------------- */
 
         mapController = MapController(map)
 
@@ -71,14 +85,20 @@ class MainActivity : AppCompatActivity() {
 
         searchController = SearchController(searchBox, lifecycleScope)
 
+        favoritesDb = FavoritesDbHelper(this)
+
+        /* -------------------- MAP TAP -------------------- */
+
         mapController.setup { point ->
             mapController.setDestination(point, "Selected location")
-            txtDest.text = "📌 Selected location"
+            txtDestination.text = "📌 Selected location"
         }
+
+        /* -------------------- SEARCH -------------------- */
 
         searchController.setup { point, label ->
             mapController.setDestination(point, label)
-            txtDest.text = "📌 $label"
+            txtDestination.text = "📌 $label"
 
             Utility.hideKeyboard(this, searchBox.windowToken)
 
@@ -91,7 +111,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        findViewById<Button>(R.id.btnRoute).setOnClickListener {
+        /* -------------------- SHOW ROUTE -------------------- */
+
+        btnRoute.setOnClickListener {
             val start = locationController.currentLocation
             val end = mapController.getDestination()
 
@@ -103,47 +125,73 @@ class MainActivity : AppCompatActivity() {
             mapController.drawRoute(
                 start,
                 end,
-                onRouteReady = {
-                    // route drawn (car)
-                },
+                onRouteReady = {},
                 onError = {
                     Toast.makeText(this, "Route failed", Toast.LENGTH_SHORT).show()
                 }
             )
 
-            // 🔥 Fetch ALL transport ETAs
             mapController.fetchRouteInfo(start, end) { routes ->
-
                 for (route in routes) {
-                    val durationText = Utility.formatDuration(route.durationMin.toInt())
-                    val distanceText = "%.1f km".format(route.distanceKm)
+                    val duration = Utility.formatDuration(route.durationMin)
+                    val distance = "%.1f km".format(route.distanceKm)
 
                     when (route.profile) {
-                        "driving" -> {
-                            txtCar.text = "$durationText • $distanceText"
-                        }
-                        "foot" -> {
-                            txtWalk.text = "$durationText • $distanceText"
-                        }
-                        "bike" -> {
-                            txtBike.text = "$durationText • $distanceText"
-                        }
+                        "driving" -> txtCar.text = "$duration • $distance"
+                        "foot" -> txtWalk.text = "$duration • $distance"
+                        "bike" -> txtBike.text = "$duration • $distance"
                     }
                 }
-
                 bottomRouteInfo.visibility = LinearLayout.VISIBLE
             }
-
-
         }
 
-        findViewById<Button>(R.id.btnClearRoute).setOnClickListener {
+        /* -------------------- CLEAR ROUTE -------------------- */
+
+        btnClear.setOnClickListener {
             mapController.clearRoute()
             bottomRouteInfo.visibility = LinearLayout.GONE
-            txtDest.text = "Where to?"
+            txtDestination.text = "Where to?"
             txtWeather.text = "🌤 Weather"
         }
+
+        /* -------------------- SAVE FAVORITE -------------------- */
+
+        val db = FavoritesDbHelper(this)
+
+        btnSave.setOnClickListener {
+            val start = locationController.currentLocation
+            val end = mapController.getDestination()
+
+            if (start == null || end == null) {
+                Toast.makeText(this, "No route to save", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            db.insert(
+                FavoriteRoute(
+                    startLat = start.latitude,
+                    startLng = start.longitude,
+                    endLat = end.latitude,
+                    endLng = end.longitude,
+                    destinationName = txtDestination.text.toString(),
+                    distanceKm = 5.4,      // replace later with real value
+                    durationMin = 18       // replace later with real value
+                )
+            )
+
+            Toast.makeText(this, "⭐ Route saved", Toast.LENGTH_SHORT).show()
+        }
+
+        findViewById<Button>(R.id.btnFavorites).setOnClickListener {
+            startActivity(
+                Intent(this, FavoritesActivity::class.java)
+            )
+        }
+
     }
+
+    /* -------------------- LIFECYCLE -------------------- */
 
     override fun onResume() {
         super.onResume()
@@ -154,6 +202,8 @@ class MainActivity : AppCompatActivity() {
         locationController.stop()
         super.onPause()
     }
+
+    /* -------------------- PERMISSIONS -------------------- */
 
     private fun checkLocationPermission() {
         if (ContextCompat.checkSelfPermission(

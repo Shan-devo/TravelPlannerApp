@@ -53,6 +53,15 @@ class MainActivity : AppCompatActivity() {
         )
         Configuration.getInstance().userAgentValue = packageName
 
+        Configuration.getInstance().apply {
+            load(applicationContext, getSharedPreferences("osmdroid", MODE_PRIVATE))
+            userAgentValue = packageName
+
+            // ✅ OFFLINE CACHE
+            tileFileSystemCacheMaxBytes = 300L * 1024 * 1024   // 300 MB
+            tileFileSystemCacheTrimBytes = 250L * 1024 * 1024
+        }
+
         setContentView(R.layout.activity_main)
 
         /* -------------------- VIEWS -------------------- */

@@ -6,7 +6,7 @@ data class FavoriteRoute(
     val startLng: Double,
     val endLat: Double,
     val endLng: Double,
-    val destinationName: String,
+    var destinationName: String,
     val distanceKm: Double,
     val durationMin: Int
 )

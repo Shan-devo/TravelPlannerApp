@@ -1,6 +1,7 @@
 package com.example.travelplannerapp.controller
 
 import com.example.travelplannerapp.data.RouteInfo
+import com.example.travelplannerapp.utilities.MapHelper
 import org.json.JSONObject
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -102,6 +103,7 @@ class MapController(private val map: MapView) {
                     )
                 }
 
+                MapHelper.preload(map,end);
             } catch (e: Exception) {
                 map.post { onError() }
             }

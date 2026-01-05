@@ -89,6 +89,19 @@ class FavoritesDbHelper(context: Context) :
         db.close()
     }
 
+    fun updateName(id: Long, newName: String) {
+        val values = ContentValues().apply {
+            put("destination_name", newName)
+        }
+
+        writableDatabase.update(
+            TABLE_NAME,
+            values,
+            "id=?",
+            arrayOf(id.toString())
+        )
+    }
+
     companion object {
         private const val DB_NAME = "favorites.db"
         private const val DB_VERSION = 1

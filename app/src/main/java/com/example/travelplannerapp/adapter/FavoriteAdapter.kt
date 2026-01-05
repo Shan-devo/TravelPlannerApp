@@ -11,6 +11,7 @@ import com.example.travelplannerapp.data.FavoriteRoute
 
 class FavoriteAdapter(
     private val list: MutableList<FavoriteRoute>,
+    private val onClick: (FavoriteRoute) -> Unit,
     private val onDelete: (FavoriteRoute) -> Unit
 ) : RecyclerView.Adapter<FavoriteAdapter.VH>() {
 
@@ -28,9 +29,16 @@ class FavoriteAdapter(
 
     override fun onBindViewHolder(h: VH, pos: Int) {
         val route = list[pos]
+
         h.title.text = route.destinationName
         h.info.text = "${route.durationMin} min • %.1f km".format(route.distanceKm)
 
+        // ✅ TAP → OPEN MAP
+        h.itemView.setOnClickListener {
+            onClick(route)
+        }
+
+        // ✅ DELETE
         h.btnDelete.setOnClickListener {
             onDelete(route)
             list.removeAt(pos)

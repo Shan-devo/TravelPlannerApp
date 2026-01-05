@@ -16,6 +16,7 @@ import com.example.travelplannerapp.utilities.FavoritesDbHelper
 import com.example.travelplannerapp.utilities.Utility
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
+import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 
 class MainActivity : AppCompatActivity() {
@@ -187,6 +188,39 @@ class MainActivity : AppCompatActivity() {
             startActivity(
                 Intent(this, FavoritesActivity::class.java)
             )
+        }
+
+        // 🔹 Handle route opened from Favorites
+        intent?.let {
+            if (it.hasExtra("start_lat")) {
+
+                val start = GeoPoint(
+                    it.getDoubleExtra("start_lat", 0.0),
+                    it.getDoubleExtra("start_lng", 0.0)
+                )
+
+                val end = GeoPoint(
+                    it.getDoubleExtra("end_lat", 0.0),
+                    it.getDoubleExtra("end_lng", 0.0)
+                )
+
+                val destination = it.getStringExtra("destination") ?: "Favorite"
+
+                txtDestination.text = "📌 $destination"
+
+                mapController.setDestination(end, destination)
+
+                map.post {
+                    mapController.drawRoute(
+                        start,
+                        end,
+                        onRouteReady = {},
+                        onError = {
+                            Toast.makeText(this, "Route failed", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+            }
         }
 
     }

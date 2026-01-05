@@ -21,131 +21,98 @@
         android:layout_marginEnd="12dp"
         android:layout_marginTop="50dp"
         android:orientation="vertical"
-        android:padding="12dp"
+        android:padding="10dp"
         android:background="@drawable/bg_card"
-        android:elevation="12dp">
+        android:elevation="10dp">
 
-
-    <!-- CURRENT LOCATION (SUBTLE) -->
-        <TextView
-            android:id="@+id/txtCurrentLocation"
+        <!-- CURRENT LOCATION -->
+        <AutoCompleteTextView
+            android:id="@+id/etCurrentLocation"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="📍 Current location"
-            android:textSize="12sp"
-            android:textColor="#666666"
-            android:maxLines="1"
-            android:ellipsize="end" />
+            android:hint="Current location"
+            android:enabled="false"
+            android:focusable="false"
+            android:padding="10dp"
+            android:textSize="14sp"
+            android:textColor="@android:color/white"
+            android:textColorHint="@android:color/white"
+            android:background="@drawable/bg_input"/>
 
-        <!-- DESTINATION (PRIMARY) -->
-        <TextView
-            android:id="@+id/txtDestination"
+
+        <!-- DESTINATION -->
+        <AutoCompleteTextView
+            android:id="@+id/etDestination"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Where to?"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="@android:color/black"
-            android:layout_marginTop="6dp"
-            android:maxLines="2"
-            android:ellipsize="end" />
+            android:layout_marginTop="8dp"
+            android:hint="Search destination"
+            android:padding="10dp"
+            android:textSize="15sp"
+            android:textColor="@android:color/white"
+            android:textColorHint="@android:color/white"
+            android:imeOptions="actionSearch"
+            android:singleLine="true"
+            android:background="@drawable/bg_input"/>
 
-        <!-- Weather (ADD HERE) -->
+
+        <!-- WEATHER -->
         <LinearLayout
+            android:id="@+id/weatherLayout"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="4dp">
+            android:layout_marginTop="6dp"
+            android:visibility="gone">
 
             <ImageView
                 android:id="@+id/imgWeather"
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:contentDescription="Weather icon"/>
+                android:layout_width="16dp"
+                android:layout_height="16dp"/>
 
             <TextView
                 android:id="@+id/txtWeather"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="6dp"
-                android:text="Weather"
                 android:textSize="13sp"
-                android:textColor="#444444"/>
-        </LinearLayout>
-
-
-        <!-- SEARCH -->
-        <AutoCompleteTextView
-            android:id="@+id/searchLocation"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:padding="10dp"
-            android:hint="Search destination"
-            android:background="@drawable/bg_input"
-
-            android:singleLine="true"
-            android:imeOptions="actionSearch"
-            android:inputType="text"
-            android:focusable="true"
-            android:focusableInTouchMode="true" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="10dp">
-
-            <Button
-                android:id="@+id/btnRoute"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Route"
-                android:background="@drawable/button_bg_card"
-                android:backgroundTint="@null"
-                android:stateListAnimator="@null"
-                android:paddingHorizontal="20dp"
                 android:textColor="@android:color/white"/>
-
-            <View
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                android:layout_weight="1"/>
-
-            <!-- ⭐ SAVE BUTTON (NEW) -->
-            <Button
-                android:id="@+id/btnSave"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Save ⭐"
-                android:background="@drawable/button_bg_card"
-                android:textColor="@android:color/white"
-                android:paddingHorizontal="20dp" />
-
-            <View
-                android:layout_width="12dp"
-                android:layout_height="0dp"/>
-
-            <Button
-                android:id="@+id/btnFavorites"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="⭐ Favorites"/>
-
-            <Button
-                android:id="@+id/btnClearRoute"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Clear"
-                android:background="@drawable/button_bg_card"
-                android:backgroundTint="@null"
-                android:stateListAnimator="@null"
-                android:paddingHorizontal="20dp"
-                android:textColor="@android:color/white"/>
-
         </LinearLayout>
-
     </LinearLayout>
+
+
+    <!-- ACTION BUTTONS -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout_marginTop="170dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <Button
+            android:id="@+id/btnRoute"
+            android:text="Route"
+            style="@style/MapActionBtn"/>
+
+        <Button
+            android:id="@+id/btnSave"
+            android:text="Save ⭐"
+            style="@style/MapActionBtn"/>
+
+        <Button
+            android:id="@+id/btnFavorites"
+            android:text="⭐ Favorites"
+            style="@style/MapActionBtn"/>
+
+        <Button
+            android:id="@+id/btnClearRoute"
+            android:text="Clear"
+            style="@style/MapActionBtn"/>
+    </LinearLayout>
+
 
     <!-- BOTTOM ROUTE INFO BAR -->
     <LinearLayout

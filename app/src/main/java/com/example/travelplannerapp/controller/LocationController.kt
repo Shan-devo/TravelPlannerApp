@@ -2,7 +2,6 @@ package com.example.travelplannerapp.controller
 
 import android.content.Context
 import android.location.Location
-import android.widget.TextView
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
@@ -10,8 +9,8 @@ import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 class LocationController(
     private val map: MapView,
-    private val txtLocation: TextView,
-    private val iconBitmap: android.graphics.Bitmap
+    private val onLocationUpdate: (GeoPoint) -> Unit,
+    private val icon: android.graphics.Bitmap
 ) {
 
     var currentLocation: GeoPoint? = null
@@ -25,26 +24,26 @@ class LocationController(
         val provider = object : GpsMyLocationProvider(context) {
             override fun onLocationChanged(location: Location) {
                 super.onLocationChanged(location)
-                currentLocation = GeoPoint(location.latitude, location.longitude)
 
-                txtLocation.post {
-                    txtLocation.text =
-                        "📍 %.5f, %.5f"
-                            .format(location.latitude, location.longitude)
-                }
+                val geo = GeoPoint(location.latitude, location.longitude)
+                currentLocation = geo
+
+                // 🔹 Notify UI
+                onLocationUpdate(geo)
             }
         }
 
         overlay = MyLocationNewOverlay(provider, map).apply {
             enableMyLocation()
-            setPersonIcon(iconBitmap)
+            setPersonIcon(icon)
 
             runOnFirstFix {
-                myLocation?.let {
-                    currentLocation = it
+                myLocation?.let { geo ->
+                    currentLocation = geo
                     map.post {
-                        map.controller.animateTo(it)
+                        map.controller.animateTo(geo)
                         map.controller.setZoom(16.0)
+                        onLocationUpdate(geo)
                     }
                 }
             }
@@ -56,5 +55,6 @@ class LocationController(
 
     fun stop() {
         overlay?.disableMyLocation()
+        overlay = null
     }
 }

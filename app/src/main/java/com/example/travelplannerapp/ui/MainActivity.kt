@@ -25,9 +25,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var locationController: LocationController
     private lateinit var searchController: SearchController
 
+    // 🔹 New UI
+    private lateinit var etCurrentLocation: AutoCompleteTextView
+    private lateinit var etDestination: AutoCompleteTextView
+    private lateinit var weatherLayout: LinearLayout
     private lateinit var txtWeather: TextView
     private lateinit var imgWeather: ImageView
-    private lateinit var txtDestination: TextView
 
     private lateinit var bottomRouteInfo: LinearLayout
     private lateinit var txtCar: TextView
@@ -46,19 +49,11 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ✅ OSMDroid config
-        Configuration.getInstance().load(
-            applicationContext,
-            getSharedPreferences("osmdroid", MODE_PRIVATE)
-        )
-        Configuration.getInstance().userAgentValue = packageName
-
+        // ✅ OSMDroid + Offline cache
         Configuration.getInstance().apply {
             load(applicationContext, getSharedPreferences("osmdroid", MODE_PRIVATE))
             userAgentValue = packageName
-
-            // ✅ OFFLINE CACHE
-            tileFileSystemCacheMaxBytes = 300L * 1024 * 1024   // 300 MB
+            tileFileSystemCacheMaxBytes = 300L * 1024 * 1024
             tileFileSystemCacheTrimBytes = 250L * 1024 * 1024
         }
 
@@ -67,10 +62,11 @@ class MainActivity : AppCompatActivity() {
         /* -------------------- VIEWS -------------------- */
 
         val map = findViewById<MapView>(R.id.map)
-        val txtCurrent = findViewById<TextView>(R.id.txtCurrentLocation)
-        txtDestination = findViewById(R.id.txtDestination)
-        val searchBox = findViewById<AutoCompleteTextView>(R.id.searchLocation)
 
+        etCurrentLocation = findViewById(R.id.etCurrentLocation)
+        etDestination = findViewById(R.id.etDestination)
+
+        weatherLayout = findViewById(R.id.weatherLayout)
         txtWeather = findViewById(R.id.txtWeather)
         imgWeather = findViewById(R.id.imgWeather)
 
@@ -89,28 +85,25 @@ class MainActivity : AppCompatActivity() {
 
         locationController = LocationController(
             map,
-            txtCurrent,
-            Utility.drawableToBitmap(this, R.drawable.ic_my_location)
+            onLocationUpdate = { geo ->
+                etCurrentLocation.setText(
+                    "%.5f, %.5f".format(geo.latitude, geo.longitude)
+                )
+            },
+            icon = Utility.drawableToBitmap(this, R.drawable.ic_my_location)
         )
 
-        searchController = SearchController(searchBox, lifecycleScope)
-
+        searchController = SearchController(etDestination, lifecycleScope)
         favoritesDb = FavoritesDbHelper(this)
 
-        /* -------------------- MAP TAP -------------------- */
-
-        mapController.setup { point ->
-            mapController.setDestination(point, "Selected location")
-            txtDestination.text = "📌 Selected location"
-        }
-
-        /* -------------------- SEARCH -------------------- */
+        /* -------------------- SEARCH DESTINATION -------------------- */
 
         searchController.setup { point, label ->
             mapController.setDestination(point, label)
-            txtDestination.text = "📌 $label"
 
-            Utility.hideKeyboard(this, searchBox.windowToken)
+            etDestination.setText(label)
+            etDestination.clearFocus()
+            Utility.hideKeyboard(this, etDestination.windowToken)
 
             lifecycleScope.launch {
                 val weather = weatherController.getWeather(point)
@@ -118,10 +111,11 @@ class MainActivity : AppCompatActivity() {
                 imgWeather.setImageResource(
                     Utility.weatherIcon(weather.symbolCode)
                 )
+                weatherLayout.visibility = LinearLayout.VISIBLE
             }
         }
 
-        /* -------------------- SHOW ROUTE -------------------- */
+        /* -------------------- ROUTE -------------------- */
 
         btnRoute.setOnClickListener {
             val start = locationController.currentLocation
@@ -132,42 +126,35 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            mapController.drawRoute(
-                start,
-                end,
-                onRouteReady = {},
-                onError = {
-                    Toast.makeText(this, "Route failed", Toast.LENGTH_SHORT).show()
-                }
-            )
+            mapController.drawRoute(start, end, {}, {
+                Toast.makeText(this, "Route failed", Toast.LENGTH_SHORT).show()
+            })
 
             mapController.fetchRouteInfo(start, end) { routes ->
-                for (route in routes) {
-                    val duration = Utility.formatDuration(route.durationMin)
-                    val distance = "%.1f km".format(route.distanceKm)
+                for (r in routes) {
+                    val d = Utility.formatDuration(r.durationMin)
+                    val km = "%.1f km".format(r.distanceKm)
 
-                    when (route.profile) {
-                        "driving" -> txtCar.text = "$duration • $distance"
-                        "foot" -> txtWalk.text = "$duration • $distance"
-                        "bike" -> txtBike.text = "$duration • $distance"
+                    when (r.profile) {
+                        "driving" -> txtCar.text = "$d • $km"
+                        "foot" -> txtWalk.text = "$d • $km"
+                        "bike" -> txtBike.text = "$d • $km"
                     }
                 }
                 bottomRouteInfo.visibility = LinearLayout.VISIBLE
             }
         }
 
-        /* -------------------- CLEAR ROUTE -------------------- */
+        /* -------------------- CLEAR -------------------- */
 
         btnClear.setOnClickListener {
             mapController.clearRoute()
             bottomRouteInfo.visibility = LinearLayout.GONE
-            txtDestination.text = "Where to?"
-            txtWeather.text = "🌤 Weather"
+            etDestination.setText("")
+            weatherLayout.visibility = LinearLayout.GONE
         }
 
         /* -------------------- SAVE FAVORITE -------------------- */
-
-        val db = FavoritesDbHelper(this)
 
         btnSave.setOnClickListener {
             val start = locationController.currentLocation
@@ -178,63 +165,27 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            db.insert(
+            favoritesDb.insert(
                 FavoriteRoute(
                     startLat = start.latitude,
                     startLng = start.longitude,
                     endLat = end.latitude,
                     endLng = end.longitude,
-                    destinationName = txtDestination.text.toString(),
-                    distanceKm = 5.4,      // replace later with real value
-                    durationMin = 18       // replace later with real value
+                    destinationName = etDestination.text.toString(),
+                    distanceKm = 0.0,
+                    durationMin = 0
                 )
             )
 
             Toast.makeText(this, "⭐ Route saved", Toast.LENGTH_SHORT).show()
         }
 
+        /* -------------------- FAVORITES -------------------- */
+
         findViewById<Button>(R.id.btnFavorites).setOnClickListener {
-            startActivity(
-                Intent(this, FavoritesActivity::class.java)
-            )
+            startActivity(Intent(this, FavoritesActivity::class.java))
         }
-
-        // 🔹 Handle route opened from Favorites
-        intent?.let {
-            if (it.hasExtra("start_lat")) {
-
-                val start = GeoPoint(
-                    it.getDoubleExtra("start_lat", 0.0),
-                    it.getDoubleExtra("start_lng", 0.0)
-                )
-
-                val end = GeoPoint(
-                    it.getDoubleExtra("end_lat", 0.0),
-                    it.getDoubleExtra("end_lng", 0.0)
-                )
-
-                val destination = it.getStringExtra("destination") ?: "Favorite"
-
-                txtDestination.text = "📌 $destination"
-
-                mapController.setDestination(end, destination)
-
-                map.post {
-                    mapController.drawRoute(
-                        start,
-                        end,
-                        onRouteReady = {},
-                        onError = {
-                            Toast.makeText(this, "Route failed", Toast.LENGTH_SHORT).show()
-                        }
-                    )
-                }
-            }
-        }
-
     }
-
-    /* -------------------- LIFECYCLE -------------------- */
 
     override fun onResume() {
         super.onResume()
@@ -245,8 +196,6 @@ class MainActivity : AppCompatActivity() {
         locationController.stop()
         super.onPause()
     }
-
-    /* -------------------- PERMISSIONS -------------------- */
 
     private fun checkLocationPermission() {
         if (ContextCompat.checkSelfPermission(

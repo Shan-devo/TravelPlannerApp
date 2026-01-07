@@ -3,7 +3,7 @@
 
     <!-- App theme WITHOUT ActionBar (REQUIRED for Maps) -->
     <style name="Theme.TravelPlannerApp"
-        parent="Theme.Material3.DayNight.NoActionBar">
+        parent="Theme.MaterialComponents.DayNight.NoActionBar">
 
         <!-- Primary colors -->
         <item name="colorPrimary">@color/purple_500</item>

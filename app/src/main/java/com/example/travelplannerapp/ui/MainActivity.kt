@@ -5,27 +5,39 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.*
+import androidx.activity.addCallback
+import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.GravityCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.lifecycleScope
 import com.example.travelplannerapp.R
 import com.example.travelplannerapp.controller.*
 import com.example.travelplannerapp.data.FavoriteRoute
 import com.example.travelplannerapp.utilities.FavoritesDbHelper
 import com.example.travelplannerapp.utilities.Utility
+import com.google.android.material.navigation.NavigationView
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
-import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import androidx.appcompat.widget.Toolbar
 
 class MainActivity : AppCompatActivity() {
 
+    /* ---------------- DRAWER ---------------- */
+    private lateinit var drawerLayout: DrawerLayout
+    private lateinit var navigationView: NavigationView
+    private lateinit var toggle: ActionBarDrawerToggle
+
+    /* ---------------- MAP & CONTROLLERS ---------------- */
     private lateinit var mapController: MapController
     private lateinit var locationController: LocationController
     private lateinit var searchController: SearchController
+    private lateinit var favoritesDb: FavoritesDbHelper
 
-    // 🔹 New UI
+    /* ---------------- UI ---------------- */
     private lateinit var etCurrentLocation: AutoCompleteTextView
     private lateinit var etDestination: AutoCompleteTextView
     private lateinit var weatherLayout: LinearLayout
@@ -38,7 +50,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var txtBike: TextView
 
     private lateinit var btnSave: Button
-    private lateinit var favoritesDb: FavoritesDbHelper
 
     private val weatherController = WeatherController()
 
@@ -49,7 +60,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ✅ OSMDroid + Offline cache
+        /* ---------------- OSMDROID + OFFLINE CACHE ---------------- */
         Configuration.getInstance().apply {
             load(applicationContext, getSharedPreferences("osmdroid", MODE_PRIVATE))
             userAgentValue = packageName
@@ -59,8 +70,57 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
-        /* -------------------- VIEWS -------------------- */
+        /* ---------------- TOOLBAR + DRAWER ---------------- */
+        // Toolbar
+        val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
+        setSupportActionBar(toolbar)
 
+        supportActionBar?.setDisplayShowTitleEnabled(false)
+
+        // Remove default inset so custom padding works
+        toolbar.setContentInsetsAbsolute(0, 0)
+
+        // Drawer
+        drawerLayout = findViewById(R.id.drawerLayout)
+        navigationView = findViewById(R.id.navigationView)
+
+        // Toggle
+        toggle = ActionBarDrawerToggle(
+            this,
+            drawerLayout,
+            toolbar,
+            R.string.navigation_drawer_open,
+            R.string.navigation_drawer_close
+        )
+        toggle.drawerArrowDrawable.color =
+            ContextCompat.getColor(this, android.R.color.white)
+
+        drawerLayout.addDrawerListener(toggle)
+        toggle.syncState()
+
+        navigationView.setNavigationItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_favorites -> {
+                    startActivity(Intent(this, FavoritesActivity::class.java))
+                    drawerLayout.closeDrawer(GravityCompat.START)
+                    true
+                }
+                else -> false
+            }
+        }
+
+        onBackPressedDispatcher.addCallback(this) {
+            if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
+                drawerLayout.closeDrawer(GravityCompat.START)
+            } else {
+                finish()
+            }
+        }
+
+
+
+
+        /* ---------------- VIEWS ---------------- */
         val map = findViewById<MapView>(R.id.map)
 
         etCurrentLocation = findViewById(R.id.etCurrentLocation)
@@ -79,8 +139,7 @@ class MainActivity : AppCompatActivity() {
         val btnClear = findViewById<Button>(R.id.btnClearRoute)
         btnSave = findViewById(R.id.btnSave)
 
-        /* -------------------- CONTROLLERS -------------------- */
-
+        /* ---------------- CONTROLLERS ---------------- */
         mapController = MapController(map)
 
         locationController = LocationController(
@@ -96,8 +155,7 @@ class MainActivity : AppCompatActivity() {
         searchController = SearchController(etDestination, lifecycleScope)
         favoritesDb = FavoritesDbHelper(this)
 
-        /* -------------------- SEARCH DESTINATION -------------------- */
-
+        /* ---------------- SEARCH DESTINATION ---------------- */
         searchController.setup { point, label ->
             mapController.setDestination(point, label)
 
@@ -115,8 +173,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        /* -------------------- ROUTE -------------------- */
-
+        /* ---------------- ROUTE ---------------- */
         btnRoute.setOnClickListener {
             val start = locationController.currentLocation
             val end = mapController.getDestination()
@@ -145,8 +202,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        /* -------------------- CLEAR -------------------- */
-
+        /* ---------------- CLEAR ---------------- */
         btnClear.setOnClickListener {
             mapController.clearRoute()
             bottomRouteInfo.visibility = LinearLayout.GONE
@@ -154,8 +210,7 @@ class MainActivity : AppCompatActivity() {
             weatherLayout.visibility = LinearLayout.GONE
         }
 
-        /* -------------------- SAVE FAVORITE -------------------- */
-
+        /* ---------------- SAVE FAVORITE ---------------- */
         btnSave.setOnClickListener {
             val start = locationController.currentLocation
             val end = mapController.getDestination()
@@ -179,14 +234,9 @@ class MainActivity : AppCompatActivity() {
 
             Toast.makeText(this, "⭐ Route saved", Toast.LENGTH_SHORT).show()
         }
-
-        /* -------------------- FAVORITES -------------------- */
-
-        findViewById<Button>(R.id.btnFavorites).setOnClickListener {
-            startActivity(Intent(this, FavoritesActivity::class.java))
-        }
     }
 
+    /* ---------------- LIFECYCLE ---------------- */
     override fun onResume() {
         super.onResume()
         checkLocationPermission()
@@ -197,6 +247,7 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
     }
 
+    /* ---------------- PERMISSION ---------------- */
     private fun checkLocationPermission() {
         if (ContextCompat.checkSelfPermission(
                 this,
@@ -212,4 +263,5 @@ class MainActivity : AppCompatActivity() {
             )
         }
     }
+
 }

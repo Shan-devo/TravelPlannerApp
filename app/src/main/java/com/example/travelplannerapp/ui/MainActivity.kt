@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.view.View
 import android.widget.*
 import androidx.activity.addCallback
 import androidx.appcompat.app.ActionBarDrawerToggle
@@ -72,7 +73,7 @@ class MainActivity : AppCompatActivity() {
 
         /* ---------------- TOOLBAR + DRAWER ---------------- */
         // Toolbar
-        val toolbar = findViewById<androidx.appcompat.widget.Toolbar>(R.id.toolbar)
+        val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
 
         supportActionBar?.setDisplayShowTitleEnabled(false)
@@ -96,6 +97,9 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.getColor(this, android.R.color.white)
 
         drawerLayout.addDrawerListener(toggle)
+        drawerLayout.setScrimColor(
+            ContextCompat.getColor(this, android.R.color.transparent)
+        )
         toggle.syncState()
 
         navigationView.setNavigationItemSelectedListener { item ->
@@ -184,7 +188,6 @@ class MainActivity : AppCompatActivity() {
             }
 
             mapController.drawRoute(start, end, {}, {
-                Toast.makeText(this, "Route failed", Toast.LENGTH_SHORT).show()
             })
 
             mapController.fetchRouteInfo(start, end) { routes ->

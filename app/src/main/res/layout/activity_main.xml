@@ -35,8 +35,6 @@ android:layout_height="match_parent">
             android:layout_height="match_parent"
             android:focusable="false"
             android:focusableInTouchMode="false" />
-
-
         <!-- FLOATING TOP CARD -->
         <LinearLayout
             android:id="@+id/topPanel"
@@ -244,7 +242,10 @@ android:layout_height="match_parent">
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:background="#CCFFFFFF"
-        app:menu="@menu/drawer_menu"/>
+        app:itemIconTint="@color/black"
+        app:itemTextColor="@color/black"
+        app:menu="@menu/drawer_menu"
+        app:headerLayout="@layout/nav_header"/>
 
 
 </androidx.drawerlayout.widget.DrawerLayout>

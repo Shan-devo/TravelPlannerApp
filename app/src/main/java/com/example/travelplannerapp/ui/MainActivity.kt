@@ -4,11 +4,12 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.view.View
+import android.view.MenuItem
 import android.widget.*
 import androidx.activity.addCallback
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
@@ -23,7 +24,6 @@ import com.google.android.material.navigation.NavigationView
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
 import org.osmdroid.views.MapView
-import androidx.appcompat.widget.Toolbar
 
 class MainActivity : AppCompatActivity() {
 
@@ -32,7 +32,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var navigationView: NavigationView
     private lateinit var toggle: ActionBarDrawerToggle
 
-    /* ---------------- MAP & CONTROLLERS ---------------- */
+    /* ---------------- CONTROLLERS ---------------- */
     private lateinit var mapController: MapController
     private lateinit var locationController: LocationController
     private lateinit var searchController: SearchController
@@ -50,7 +50,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var txtWalk: TextView
     private lateinit var txtBike: TextView
 
-    private lateinit var btnSave: Button
+    /* ---------------- ROUTE STATE ---------------- */
+    private var lastDistanceKm = 0.0
+    private var lastDurationMin = 0
+    private var isRouteReady = false
 
     private val weatherController = WeatherController()
 
@@ -61,7 +64,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        /* ---------------- OSMDROID + OFFLINE CACHE ---------------- */
+        /* ---------------- OSMDROID CONFIG ---------------- */
         Configuration.getInstance().apply {
             load(applicationContext, getSharedPreferences("osmdroid", MODE_PRIVATE))
             userAgentValue = packageName
@@ -71,21 +74,18 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
-        /* ---------------- TOOLBAR + DRAWER ---------------- */
-        // Toolbar
+        /* ---------------- TOOLBAR ---------------- */
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
-
         supportActionBar?.setDisplayShowTitleEnabled(false)
-
-        // Remove default inset so custom padding works
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.setHomeButtonEnabled(true)
         toolbar.setContentInsetsAbsolute(0, 0)
 
-        // Drawer
+        /* ---------------- DRAWER ---------------- */
         drawerLayout = findViewById(R.id.drawerLayout)
         navigationView = findViewById(R.id.navigationView)
 
-        // Toggle
         toggle = ActionBarDrawerToggle(
             this,
             drawerLayout,
@@ -97,9 +97,6 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.getColor(this, android.R.color.white)
 
         drawerLayout.addDrawerListener(toggle)
-        drawerLayout.setScrimColor(
-            ContextCompat.getColor(this, android.R.color.transparent)
-        )
         toggle.syncState()
 
         navigationView.setNavigationItemSelectedListener { item ->
@@ -121,9 +118,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-
-
-
         /* ---------------- VIEWS ---------------- */
         val map = findViewById<MapView>(R.id.map)
 
@@ -141,7 +135,7 @@ class MainActivity : AppCompatActivity() {
 
         val btnRoute = findViewById<Button>(R.id.btnRoute)
         val btnClear = findViewById<Button>(R.id.btnClearRoute)
-        btnSave = findViewById(R.id.btnSave)
+        val btnSave = findViewById<Button>(R.id.btnSave)
 
         /* ---------------- CONTROLLERS ---------------- */
         mapController = MapController(map)
@@ -159,12 +153,10 @@ class MainActivity : AppCompatActivity() {
         searchController = SearchController(etDestination, lifecycleScope)
         favoritesDb = FavoritesDbHelper(this)
 
-        /* ---------------- SEARCH DESTINATION ---------------- */
+        /* ---------------- SEARCH ---------------- */
         searchController.setup { point, label ->
             mapController.setDestination(point, label)
-
             etDestination.setText(label)
-            etDestination.clearFocus()
             Utility.hideKeyboard(this, etDestination.windowToken)
 
             lifecycleScope.launch {
@@ -187,8 +179,8 @@ class MainActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            mapController.drawRoute(start, end, {}, {
-            })
+            isRouteReady = false
+            mapController.drawRoute(start, end, {}, {})
 
             mapController.fetchRouteInfo(start, end) { routes ->
                 for (r in routes) {
@@ -196,7 +188,12 @@ class MainActivity : AppCompatActivity() {
                     val km = "%.1f km".format(r.distanceKm)
 
                     when (r.profile) {
-                        "driving" -> txtCar.text = "$d • $km"
+                        "driving" -> {
+                            txtCar.text = "$d • $km"
+                            lastDistanceKm = r.distanceKm
+                            lastDurationMin = r.durationMin
+                            isRouteReady = true
+                        }
                         "foot" -> txtWalk.text = "$d • $km"
                         "bike" -> txtBike.text = "$d • $km"
                     }
@@ -205,21 +202,69 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        /* ---------------- RESTORE ROUTE FROM FAVORITES ---------------- */
+        intent?.let { i ->
+            if (i.hasExtra("start_lat") && i.hasExtra("end_lat")) {
+
+                val start = org.osmdroid.util.GeoPoint(
+                    i.getDoubleExtra("start_lat", 0.0),
+                    i.getDoubleExtra("start_lng", 0.0)
+                )
+
+                val end = org.osmdroid.util.GeoPoint(
+                    i.getDoubleExtra("end_lat", 0.0),
+                    i.getDoubleExtra("end_lng", 0.0)
+                )
+
+                val destinationName = i.getStringExtra("destination") ?: ""
+
+                // Set destination marker & text
+                mapController.setDestination(end, destinationName)
+                etDestination.setText(destinationName)
+
+                // Draw route automatically
+                mapController.drawRoute(start, end, {}, {})
+
+                // Fetch route info
+                mapController.fetchRouteInfo(start, end) { routes ->
+                    for (r in routes) {
+                        val d = Utility.formatDuration(r.durationMin)
+                        val km = "%.1f km".format(r.distanceKm)
+
+                        when (r.profile) {
+                            "driving" -> {
+                                txtCar.text = "$d • $km"
+                                lastDistanceKm = r.distanceKm
+                                lastDurationMin = r.durationMin
+                                isRouteReady = true
+                            }
+                            "foot" -> txtWalk.text = "$d • $km"
+                            "bike" -> txtBike.text = "$d • $km"
+                        }
+                    }
+                    bottomRouteInfo.visibility = LinearLayout.VISIBLE
+                }
+            }
+        }
+
         /* ---------------- CLEAR ---------------- */
         btnClear.setOnClickListener {
             mapController.clearRoute()
             bottomRouteInfo.visibility = LinearLayout.GONE
-            etDestination.setText("")
             weatherLayout.visibility = LinearLayout.GONE
+            etDestination.setText("")
+            isRouteReady = false
+            lastDistanceKm = 0.0
+            lastDurationMin = 0
         }
 
-        /* ---------------- SAVE FAVORITE ---------------- */
+        /* ---------------- SAVE ---------------- */
         btnSave.setOnClickListener {
             val start = locationController.currentLocation
             val end = mapController.getDestination()
 
-            if (start == null || end == null) {
-                Toast.makeText(this, "No route to save", Toast.LENGTH_SHORT).show()
+            if (start == null || end == null || !isRouteReady) {
+                Toast.makeText(this, "Please calculate route first", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
@@ -229,13 +274,22 @@ class MainActivity : AppCompatActivity() {
                     startLng = start.longitude,
                     endLat = end.latitude,
                     endLng = end.longitude,
-                    destinationName = etDestination.text.toString(),
-                    distanceKm = 0.0,
-                    durationMin = 0
+                    destinationName = etDestination.text.toString().trim(),
+                    distanceKm = lastDistanceKm,
+                    durationMin = lastDurationMin
                 )
             )
 
             Toast.makeText(this, "⭐ Route saved", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /* ---------------- DRAWER CLICK FIX ---------------- */
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return if (toggle.onOptionsItemSelected(item)) {
+            true
+        } else {
+            super.onOptionsItemSelected(item)
         }
     }
 
@@ -266,5 +320,4 @@ class MainActivity : AppCompatActivity() {
             )
         }
     }
-
 }

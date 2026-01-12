@@ -42,10 +42,10 @@ class SearchController(
 
         searchBox.setOnItemClickListener { _, _, pos, _ ->
             val (label, point) = results[pos]
+            searchBox.setText(label)   // ✅ KEEP full destination text
             onResult(point, label)
-            clear()
+            clearSuggestions()
         }
-
     }
 
     private fun fetch(query: String) {
@@ -64,9 +64,7 @@ class SearchController(
                 )
 
                 val arr = JSONArray(conn.inputStream.bufferedReader().readText())
-
                 val names = mutableListOf<String>()
-                results.clear()
 
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
@@ -82,19 +80,16 @@ class SearchController(
                     adapter.clear()
                     adapter.addAll(names)
                     adapter.notifyDataSetChanged()
-                    if (names.isNotEmpty()) {
-                        searchBox.showDropDown()
-                    }
+                    if (names.isNotEmpty()) searchBox.showDropDown()
                 }
 
             } catch (_: Exception) {}
         }
     }
 
-    fun clear() {
+    private fun clearSuggestions() {
         adapter.clear()
         results.clear()
-        searchBox.setText("")
         searchBox.clearFocus()
     }
 }

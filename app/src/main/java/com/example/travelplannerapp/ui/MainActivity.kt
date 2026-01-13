@@ -50,6 +50,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var txtCar: TextView
     private lateinit var txtWalk: TextView
     private lateinit var txtBike: TextView
+    private lateinit var btnRoute: Button
+    private lateinit var btnClear: Button
+    private lateinit var btnSave: Button
 
     /* ---------------- ROUTE STATE ---------------- */
     private var lastDistanceKm = 0.0
@@ -132,9 +135,9 @@ class MainActivity : AppCompatActivity() {
         txtWalk = findViewById(R.id.txtWalk)
         txtBike = findViewById(R.id.txtBike)
 
-        val btnRoute = findViewById<Button>(R.id.btnRoute)
-        val btnClear = findViewById<Button>(R.id.btnClearRoute)
-        val btnSave = findViewById<Button>(R.id.btnSave)
+        btnRoute = findViewById<Button>(R.id.btnRoute)
+        btnClear = findViewById<Button>(R.id.btnClearRoute)
+        btnSave = findViewById<Button>(R.id.btnSave)
 
         /* ===== ADDED: INITIAL BUTTON STATE ===== */
         btnRoute.isEnabled = false
@@ -163,10 +166,8 @@ class MainActivity : AppCompatActivity() {
             etDestination.setText(label)
 
             /* ===== ADDED: BUTTON RESET ON DESTINATION CHANGE ===== */
-            btnRoute.isEnabled = true
-            btnSave.visibility = View.GONE
-            btnClear.visibility = View.GONE
             isRouteReady = false
+            updateRouteUI()
 
             Utility.hideKeyboard(this, etDestination.windowToken)
 
@@ -194,28 +195,37 @@ class MainActivity : AppCompatActivity() {
             mapController.drawRoute(start, end, {}, {})
 
             mapController.fetchRouteInfo(start, end) { routes ->
-                for (r in routes) {
-                    val d = Utility.formatDuration(r.durationMin)
-                    val km = "%.1f km".format(r.distanceKm)
+                runOnUiThread {
+                    for (r in routes) {
+                        val d = Utility.formatDuration(r.durationMin)
+                        val km = "%.1f km".format(r.distanceKm)
 
-                    when (r.profile) {
-                        "driving" -> {
-                            txtCar.text = "$d • $km"
-                            lastDistanceKm = r.distanceKm
-                            lastDurationMin = r.durationMin
-                            isRouteReady = true
-
-                            /* ===== ADDED: BUTTON STATE AFTER ROUTE ===== */
-                            btnRoute.isEnabled = false
-                            btnSave.visibility = View.VISIBLE
-                            btnClear.visibility = View.VISIBLE
+                        when (r.profile) {
+                            "driving" -> {
+                                txtCar.text = "$d • $km"
+                                lastDistanceKm = r.distanceKm
+                                lastDurationMin = r.durationMin
+                            }
+                            "foot" -> txtWalk.text = "$d • $km"
+                            "bike" -> txtBike.text = "$d • $km"
                         }
-                        "foot" -> txtWalk.text = "$d • $km"
-                        "bike" -> txtBike.text = "$d • $km"
+                    }
+
+                    if (routes.isNotEmpty()) {
+                        isRouteReady = true
+                        updateRouteUI()
+
+                        // 🔥 FORCE UI REFRESH
+                        bottomRouteInfo.requestLayout()
+                        bottomRouteInfo.invalidate()
+
+                        btnSave.requestLayout()
+                        btnClear.requestLayout()
                     }
                 }
-                bottomRouteInfo.visibility = LinearLayout.VISIBLE
             }
+
+            updateRouteUI()
         }
 
         /* ---------------- RESTORE ROUTE FROM FAVORITES ---------------- */
@@ -251,10 +261,7 @@ class MainActivity : AppCompatActivity() {
                                 lastDurationMin = r.durationMin
                                 isRouteReady = true
 
-                                /* ===== ADDED: BUTTON STATE AFTER RESTORE ===== */
-                                btnRoute.isEnabled = false
-                                btnSave.visibility = View.VISIBLE
-                                btnClear.visibility = View.VISIBLE
+                                updateRouteUI()
                             }
                             "foot" -> txtWalk.text = "$d • $km"
                             "bike" -> txtBike.text = "$d • $km"
@@ -271,12 +278,8 @@ class MainActivity : AppCompatActivity() {
             bottomRouteInfo.visibility = LinearLayout.GONE
             weatherLayout.visibility = LinearLayout.GONE
 
-            /* ===== ADDED: BUTTON RESET ON CLEAR ===== */
-            btnSave.visibility = View.GONE
-            btnClear.visibility = View.GONE
-            btnRoute.isEnabled = etDestination.text.isNotBlank()
-
             isRouteReady = false
+            updateRouteUI()
             lastDistanceKm = 0.0
             lastDurationMin = 0
         }
@@ -305,6 +308,36 @@ class MainActivity : AppCompatActivity() {
 
             Toast.makeText(this, "⭐ Route saved", Toast.LENGTH_SHORT).show()
         }
+
+        val btnReverse = findViewById<ImageButton>(R.id.btnReverse)
+
+        btnReverse.setOnClickListener {
+            btnReverse.animate().rotationBy(180f).setDuration(250).start()
+            val currentText = etCurrentLocation.text.toString()
+            val destinationText = etDestination.text.toString()
+
+            if (destinationText.isBlank()) {
+                Toast.makeText(this, "No destination to reverse", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            // Swap text
+            etDestination.setText(currentText)
+
+            // Clear route safely
+            mapController.clearRoute()
+            bottomRouteInfo.visibility = View.GONE
+            weatherLayout.visibility = View.GONE
+
+            isRouteReady = false
+            lastDistanceKm = 0.0
+            lastDurationMin = 0
+
+            updateRouteUI()
+
+            Toast.makeText(this, "Locations reversed", Toast.LENGTH_SHORT).show()
+        }
+
     }
 
     /* ---------------- DRAWER CLICK FIX ---------------- */
@@ -340,4 +373,19 @@ class MainActivity : AppCompatActivity() {
             )
         }
     }
+
+    private fun updateRouteUI() {
+        if (isRouteReady) {
+            bottomRouteInfo.visibility = View.VISIBLE
+            btnSave.visibility = View.VISIBLE
+            btnClear.visibility = View.VISIBLE
+            btnRoute.isEnabled = false
+        } else {
+            bottomRouteInfo.visibility = View.GONE
+            btnSave.visibility = View.GONE
+            btnClear.visibility = View.GONE
+            btnRoute.isEnabled = etDestination.text.isNotBlank()
+        }
+    }
+
 }

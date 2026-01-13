@@ -223,20 +223,31 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center">
+                    android:orientation="horizontal"
+                    android:weightSum="2"
+                    android:paddingHorizontal="12dp">
 
                     <Button
                         android:id="@+id/btnSave"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
                         android:text="Save ⭐"
                         android:visibility="gone"
-                        style="@style/MapActionBtn"/>
+                        style="@style/MapActionBtn"
+                        android:layout_marginEnd="8dp"/>
 
                     <Button
                         android:id="@+id/btnClearRoute"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
                         android:text="Clear"
                         android:visibility="gone"
-                        style="@style/MapActionBtn"/>
+                        style="@style/MapActionBtn"
+                        android:layout_marginStart="8dp"/>
                 </LinearLayout>
+
 
             </LinearLayout>
 

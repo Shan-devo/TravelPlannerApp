@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.MenuItem
+import android.view.View
 import android.widget.*
 import androidx.activity.addCallback
 import androidx.appcompat.app.ActionBarDrawerToggle
@@ -113,9 +114,7 @@ class MainActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this) {
             if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
                 drawerLayout.closeDrawer(GravityCompat.START)
-            } else {
-                finish()
-            }
+            } else finish()
         }
 
         /* ---------------- VIEWS ---------------- */
@@ -137,6 +136,11 @@ class MainActivity : AppCompatActivity() {
         val btnClear = findViewById<Button>(R.id.btnClearRoute)
         val btnSave = findViewById<Button>(R.id.btnSave)
 
+        /* ===== ADDED: INITIAL BUTTON STATE ===== */
+        btnRoute.isEnabled = false
+        btnSave.visibility = View.GONE
+        btnClear.visibility = View.GONE
+
         /* ---------------- CONTROLLERS ---------------- */
         mapController = MapController(map)
 
@@ -157,6 +161,13 @@ class MainActivity : AppCompatActivity() {
         searchController.setup { point, label ->
             mapController.setDestination(point, label)
             etDestination.setText(label)
+
+            /* ===== ADDED: BUTTON RESET ON DESTINATION CHANGE ===== */
+            btnRoute.isEnabled = true
+            btnSave.visibility = View.GONE
+            btnClear.visibility = View.GONE
+            isRouteReady = false
+
             Utility.hideKeyboard(this, etDestination.windowToken)
 
             lifecycleScope.launch {
@@ -193,6 +204,11 @@ class MainActivity : AppCompatActivity() {
                             lastDistanceKm = r.distanceKm
                             lastDurationMin = r.durationMin
                             isRouteReady = true
+
+                            /* ===== ADDED: BUTTON STATE AFTER ROUTE ===== */
+                            btnRoute.isEnabled = false
+                            btnSave.visibility = View.VISIBLE
+                            btnClear.visibility = View.VISIBLE
                         }
                         "foot" -> txtWalk.text = "$d • $km"
                         "bike" -> txtBike.text = "$d • $km"
@@ -218,14 +234,11 @@ class MainActivity : AppCompatActivity() {
 
                 val destinationName = i.getStringExtra("destination") ?: ""
 
-                // Set destination marker & text
                 mapController.setDestination(end, destinationName)
                 etDestination.setText(destinationName)
 
-                // Draw route automatically
                 mapController.drawRoute(start, end, {}, {})
 
-                // Fetch route info
                 mapController.fetchRouteInfo(start, end) { routes ->
                     for (r in routes) {
                         val d = Utility.formatDuration(r.durationMin)
@@ -237,6 +250,11 @@ class MainActivity : AppCompatActivity() {
                                 lastDistanceKm = r.distanceKm
                                 lastDurationMin = r.durationMin
                                 isRouteReady = true
+
+                                /* ===== ADDED: BUTTON STATE AFTER RESTORE ===== */
+                                btnRoute.isEnabled = false
+                                btnSave.visibility = View.VISIBLE
+                                btnClear.visibility = View.VISIBLE
                             }
                             "foot" -> txtWalk.text = "$d • $km"
                             "bike" -> txtBike.text = "$d • $km"
@@ -252,7 +270,12 @@ class MainActivity : AppCompatActivity() {
             mapController.clearRoute()
             bottomRouteInfo.visibility = LinearLayout.GONE
             weatherLayout.visibility = LinearLayout.GONE
-            etDestination.setText("")
+
+            /* ===== ADDED: BUTTON RESET ON CLEAR ===== */
+            btnSave.visibility = View.GONE
+            btnClear.visibility = View.GONE
+            btnRoute.isEnabled = etDestination.text.isNotBlank()
+
             isRouteReady = false
             lastDistanceKm = 0.0
             lastDurationMin = 0
@@ -286,11 +309,8 @@ class MainActivity : AppCompatActivity() {
 
     /* ---------------- DRAWER CLICK FIX ---------------- */
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return if (toggle.onOptionsItemSelected(item)) {
-            true
-        } else {
-            super.onOptionsItemSelected(item)
-        }
+        return if (toggle.onOptionsItemSelected(item)) true
+        else super.onOptionsItemSelected(item)
     }
 
     /* ---------------- LIFECYCLE ---------------- */

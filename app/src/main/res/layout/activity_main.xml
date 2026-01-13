@@ -54,8 +54,6 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="Current location"
-                    android:enabled="false"
-                    android:focusable="false"
                     android:paddingHorizontal="10dp"
                     android:paddingVertical="6dp"
                     android:textSize="14sp"

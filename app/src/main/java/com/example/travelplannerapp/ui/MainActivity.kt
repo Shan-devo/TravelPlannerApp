@@ -24,6 +24,7 @@ import com.example.travelplannerapp.utilities.Utility
 import com.google.android.material.navigation.NavigationView
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
+import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 
 class MainActivity : AppCompatActivity() {
@@ -36,7 +37,9 @@ class MainActivity : AppCompatActivity() {
     /* ---------------- CONTROLLERS ---------------- */
     private lateinit var mapController: MapController
     private lateinit var locationController: LocationController
-    private lateinit var searchController: SearchController
+    private lateinit var destinationSearchController: SearchController
+
+    private lateinit var startSearchController: SearchController
     private lateinit var favoritesDb: FavoritesDbHelper
 
     /* ---------------- UI ---------------- */
@@ -59,7 +62,12 @@ class MainActivity : AppCompatActivity() {
     private var lastDurationMin = 0
     private var isRouteReady = false
 
+    private var startPoint: GeoPoint? = null
+
+    private var endPoint: GeoPoint? = null
     private val weatherController = WeatherController()
+
+    private var isStartFromGPS = true
 
     companion object {
         private const val LOCATION_REQUEST_CODE = 101
@@ -150,18 +158,22 @@ class MainActivity : AppCompatActivity() {
         locationController = LocationController(
             map,
             onLocationUpdate = { geo ->
-                etCurrentLocation.setText(
-                    "%.5f, %.5f".format(geo.latitude, geo.longitude)
-                )
-            },
+                if (isStartFromGPS) {
+                    startPoint = geo
+                    etCurrentLocation.setText("%.5f, %.5f".format(geo.latitude, geo.longitude))
+                }
+                               },
             icon = Utility.drawableToBitmap(this, R.drawable.ic_my_location)
         )
 
-        searchController = SearchController(etDestination, lifecycleScope)
-        favoritesDb = FavoritesDbHelper(this)
+        destinationSearchController = SearchController(etDestination, lifecycleScope)
+        startSearchController = SearchController(etCurrentLocation, lifecycleScope)
+
 
         /* ---------------- SEARCH ---------------- */
-        searchController.setup { point, label ->
+        destinationSearchController.setup { point, label ->
+            mapController.setDestination(point, label)
+            endPoint = point
             mapController.setDestination(point, label)
             etDestination.setText(label)
 
@@ -181,10 +193,35 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        startSearchController.setup { point, label ->
+
+            // 🔥 User is now controlling start — stop GPS override
+            isStartFromGPS = false
+
+            startPoint = point
+            etCurrentLocation.setText(label)
+
+            // Optional: center map on new start
+            map.controller.animateTo(point)
+            map.controller.setZoom(15.0)
+
+            // Clear any existing route
+            mapController.clearRoute()
+            bottomRouteInfo.visibility = View.GONE
+            weatherLayout.visibility = View.GONE
+
+            isRouteReady = false
+            updateRouteUI()
+
+            Utility.hideKeyboard(this, etCurrentLocation.windowToken)
+        }
+
+        favoritesDb = FavoritesDbHelper(this)
+
         /* ---------------- ROUTE ---------------- */
         btnRoute.setOnClickListener {
-            val start = locationController.currentLocation
-            val end = mapController.getDestination()
+            val start = startPoint
+            val end = endPoint
 
             if (start == null || end == null) {
                 Toast.makeText(this, "Waiting for GPS or destination", Toast.LENGTH_SHORT).show()
@@ -309,34 +346,51 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "⭐ Route saved", Toast.LENGTH_SHORT).show()
         }
 
+        /* ---------------- REVERSE ---------------- */
         val btnReverse = findViewById<ImageButton>(R.id.btnReverse)
 
         btnReverse.setOnClickListener {
-            btnReverse.animate().rotationBy(180f).setDuration(250).start()
-            val currentText = etCurrentLocation.text.toString()
-            val destinationText = etDestination.text.toString()
 
-            if (destinationText.isBlank()) {
-                Toast.makeText(this, "No destination to reverse", Toast.LENGTH_SHORT).show()
+            if (startPoint == null || endPoint == null) {
+                Toast.makeText(this, "Both locations required to swap", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            // Swap text
-            etDestination.setText(currentText)
+            isStartFromGPS = false
 
-            // Clear route safely
+            // Rotate icon
+            btnReverse.animate().rotationBy(180f).setDuration(250).start()
+
+            // 🔁 Swap GeoPoints
+            val tempPoint = startPoint
+            startPoint = endPoint
+            endPoint = tempPoint
+
+            // 🔁 Swap text
+            val tempText = etCurrentLocation.text.toString()
+            etCurrentLocation.setText(etDestination.text.toString())
+            etDestination.setText(tempText)
+
+            // Update map destination marker
+            endPoint?.let {
+                mapController.setDestination(it, etDestination.text.toString())
+            }
+
+            // Clear old route
             mapController.clearRoute()
-            bottomRouteInfo.visibility = View.GONE
             weatherLayout.visibility = View.GONE
+            bottomRouteInfo.visibility = View.GONE
 
+            // Reset route state
             isRouteReady = false
             lastDistanceKm = 0.0
             lastDurationMin = 0
 
             updateRouteUI()
 
-            Toast.makeText(this, "Locations reversed", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Locations swapped", Toast.LENGTH_SHORT).show()
         }
+
 
     }
 
@@ -384,7 +438,7 @@ class MainActivity : AppCompatActivity() {
             bottomRouteInfo.visibility = View.GONE
             btnSave.visibility = View.GONE
             btnClear.visibility = View.GONE
-            btnRoute.isEnabled = etDestination.text.isNotBlank()
+            btnRoute.isEnabled = (startPoint != null && endPoint != null)
         }
     }
 

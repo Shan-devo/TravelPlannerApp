@@ -2,6 +2,7 @@ package com.example.travelplannerapp.controller
 
 import android.content.Context
 import android.location.Location
+import com.example.travelplannerapp.utilities.Utility.drawableToBitmap
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
@@ -32,10 +33,17 @@ class LocationController(
                 onLocationUpdate(geo)
             }
         }
-
         overlay = MyLocationNewOverlay(provider, map).apply {
             enableMyLocation()
+
+            // ✅ THIS is what actually shows
+            setDirectionIcon(icon)
+
+            // Optional (does not hurt)
             setPersonIcon(icon)
+
+            // Accuracy circle (recommended)
+            isDrawAccuracyEnabled = true
 
             runOnFirstFix {
                 myLocation?.let { geo ->
@@ -48,6 +56,7 @@ class LocationController(
                 }
             }
         }
+
 
         map.overlays.add(overlay)
         map.invalidate()

@@ -2,10 +2,5 @@
 <resources>
 
     <!-- styles.xml -->
-    <style name="MapActionBtn">
-        <item name="android:background">@drawable/bg_button</item>
-        <item name="android:textColor">@android:color/white</item>
-        <item name="android:textSize">14sp</item>
-    </style>
 
 </resources>

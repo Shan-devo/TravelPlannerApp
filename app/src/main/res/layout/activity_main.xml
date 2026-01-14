@@ -82,7 +82,7 @@
                         android:layout_marginStart="8dp"
                         android:background="@android:color/transparent"
                         android:src="@drawable/ic_swap"
-                        android:tint="@android:color/white"/>
+                        app:tint="@android:color/white"/>
                 </LinearLayout>
 
                 <!-- DESTINATION -->
@@ -131,7 +131,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:text="Route"
-                    style="@style/MapActionBtn"/>
+                    app:background="@drawable/bg_toolbar" />
             </LinearLayout>
 
             <!-- ================= ROUTE INFO + ACTIONS ================= -->
@@ -165,7 +165,7 @@
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:src="@drawable/ic_car"
-                            android:tint="@android:color/white"/>
+                            app:tint="@android:color/white"/>
 
                         <TextView
                             android:id="@+id/txtCar"
@@ -194,7 +194,7 @@
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:src="@drawable/ic_walk"
-                            android:tint="@android:color/white"/>
+                            app:tint="@android:color/white"/>
 
                         <TextView
                             android:id="@+id/txtWalk"
@@ -223,7 +223,7 @@
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:src="@drawable/ic_bike"
-                            android:tint="@android:color/white"/>
+                            app:tint="@android:color/white"/>
 
                         <TextView
                             android:id="@+id/txtBike"
@@ -258,7 +258,6 @@
                         android:layout_weight="1"
                         android:text="Save ⭐"
                         android:visibility="gone"
-                        style="@style/MapActionBtn"
                         android:layout_marginEnd="8dp"/>
 
                     <Button
@@ -268,7 +267,6 @@
                         android:layout_weight="1"
                         android:text="Clear"
                         android:visibility="gone"
-                        style="@style/MapActionBtn"
                         android:layout_marginStart="8dp"/>
                 </LinearLayout>
 

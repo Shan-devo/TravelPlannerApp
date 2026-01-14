@@ -1,7 +1,7 @@
 package com.example.travelplannerapp.storage
 
 import android.content.Context
-import com.example.travelplannerapp.model.Booking
+import com.example.travelplannerapp.network.model.Booking
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.util.UUID

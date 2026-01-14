@@ -1,7 +1,7 @@
 package com.example.travelplannerapp.repository
 
 import android.content.Context
-import com.example.travelplannerapp.model.Booking
+import com.example.travelplannerapp.network.model.Booking
 import com.example.travelplannerapp.storage.BookingStorage
 
 class BookingRepository(context: Context) {

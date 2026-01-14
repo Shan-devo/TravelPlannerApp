@@ -97,6 +97,8 @@ class MainActivity : AppCompatActivity() {
         supportActionBar?.setDisplayShowTitleEnabled(false)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.setHomeButtonEnabled(true)
+        supportActionBar?.setDisplayShowTitleEnabled(false)
+        toolbar.title = ""
         toolbar.setContentInsetsAbsolute(0, 0)
 
         /* ---------------- DRAWER ---------------- */
@@ -125,6 +127,11 @@ class MainActivity : AppCompatActivity() {
                 }
                 R.id.nav_hotels -> {
                     startActivity(Intent(this, HotelSearchActivity::class.java))
+                    drawerLayout.closeDrawer(GravityCompat.START)
+                    true
+                }
+                R.id.nav_bookings -> {
+                    startActivity(Intent(this, MyBookingsActivity::class.java))
                     drawerLayout.closeDrawer(GravityCompat.START)
                     true
                 }

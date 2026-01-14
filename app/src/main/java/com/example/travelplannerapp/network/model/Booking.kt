@@ -1,4 +1,4 @@
-package com.example.travelplannerapp.model
+package com.example.travelplannerapp.network.model
 
 data class Booking(
     val id: String,

@@ -21,11 +21,13 @@
         android:id="@+id/btnEdit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Edit Name"/>
+        android:text="Edit Name"
+        android:backgroundTint="#32343a" />
 
     <Button
         android:id="@+id/btnDelete"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Delete"/>
+        android:text="Delete"
+        android:backgroundTint="#32343a"/>
 </LinearLayout>

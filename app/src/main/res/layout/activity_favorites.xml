@@ -7,8 +7,8 @@
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/purple_500"
-        android:title="Saved Routes"
+        android:background="@drawable/bg_toolbar"
+        android:title=""
         android:titleTextColor="@android:color/white"/>
 
     <androidx.recyclerview.widget.RecyclerView

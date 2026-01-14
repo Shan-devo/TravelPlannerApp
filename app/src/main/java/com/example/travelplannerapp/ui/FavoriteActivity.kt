@@ -21,7 +21,8 @@ class FavoritesActivity : AppCompatActivity() {
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-
+        supportActionBar?.setDisplayShowTitleEnabled(false)
+        toolbar.title = ""
         val recycler = findViewById<RecyclerView>(R.id.recyclerFavorites)
         recycler.layoutManager = LinearLayoutManager(this)
 

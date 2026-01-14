@@ -30,11 +30,11 @@ class HotelSearchActivity : AppCompatActivity() {
 
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
-
+        supportActionBar?.setDisplayShowTitleEnabled(false)
+        toolbar.title = ""
         supportActionBar?.apply {
             setDisplayHomeAsUpEnabled(true)
             setDisplayShowHomeEnabled(true)
-            title = "Search Hotels"
         }
 
         searchBox = findViewById(R.id.etHotelSearch)

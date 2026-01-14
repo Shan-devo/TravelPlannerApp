@@ -26,6 +26,11 @@ import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import android.util.Log
+import androidx.lifecycle.lifecycleScope
+import com.example.travelplannerapp.repository.HotelRepository
+import kotlinx.coroutines.launch
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -115,6 +120,11 @@ class MainActivity : AppCompatActivity() {
             when (item.itemId) {
                 R.id.nav_favorites -> {
                     startActivity(Intent(this, FavoritesActivity::class.java))
+                    drawerLayout.closeDrawer(GravityCompat.START)
+                    true
+                }
+                R.id.nav_hotels -> {
+                    startActivity(Intent(this, HotelSearchActivity::class.java))
                     drawerLayout.closeDrawer(GravityCompat.START)
                     true
                 }
@@ -390,8 +400,6 @@ class MainActivity : AppCompatActivity() {
 
             Toast.makeText(this, "Locations swapped", Toast.LENGTH_SHORT).show()
         }
-
-
     }
 
     /* ---------------- DRAWER CLICK FIX ---------------- */

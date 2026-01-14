@@ -10,4 +10,9 @@
         android:title="Favorites"
         android:icon="@android:drawable/btn_star"/>
 
+    <item
+        android:id="@+id/nav_hotels"
+        android:title="Hotels"
+        android:icon="@drawable/ic_hotel"/>
+
 </menu>

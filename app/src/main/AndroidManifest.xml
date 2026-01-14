@@ -33,6 +33,17 @@
 
         <activity android:name=".ui.FavoritesActivity"/>
 
+        <activity
+            android:name=".ui.RoomBookingActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.HotelDetailsActivity"
+            android:exported="false"/>
+
+        <activity
+            android:name=".ui.HotelSearchActivity"
+            android:exported="false"/>
     </application>
 
 </manifest>

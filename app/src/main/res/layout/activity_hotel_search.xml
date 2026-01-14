@@ -6,7 +6,7 @@
 
     <EditText
         android:id="@+id/etHotelSearch"
-        android:hint="Search hotels"
+        android:hint="Enter city (e.g. Delhi, BOM)"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="12dp"/>

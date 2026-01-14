@@ -8,8 +8,6 @@ interface HotelApi {
 
     @GET("v1/reference-data/locations/hotels/by-city")
     suspend fun getHotelsByCity(
-        @Query("cityCode") cityCode: String,
-        @Query("radius") radius: Int = 5,
-        @Query("radiusUnit") radiusUnit: String = "KM"
+        @Query("cityCode") cityCode: String
     ): HotelSearchResponse
 }

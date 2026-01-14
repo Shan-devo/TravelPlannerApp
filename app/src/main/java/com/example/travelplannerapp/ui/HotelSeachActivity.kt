@@ -3,91 +3,65 @@ package com.example.travelplannerapp.ui
 import android.content.Intent
 import android.os.Bundle
 import android.widget.EditText
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.addTextChangedListener
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.travelplannerapp.R
 import com.example.travelplannerapp.adapter.HotelAdapter
-import com.example.travelplannerapp.network.model.Address
-import com.example.travelplannerapp.network.model.GeoCode
 import com.example.travelplannerapp.network.model.Hotel
+import com.example.travelplannerapp.repository.HotelRepository
+import kotlinx.coroutines.launch
 
 class HotelSearchActivity : AppCompatActivity() {
 
     private lateinit var recycler: RecyclerView
     private lateinit var searchBox: EditText
+    private lateinit var adapter: HotelAdapter
 
-    // ✅ FULLY VALID MOCK DATA
-    private val allHotels = listOf(
-        Hotel(
-            hotelId = "H001",
-            name = "Hotel Taj",
-            geoCode = GeoCode(18.921984, 72.833245),
-            address = Address("Mumbai")
-        ),
-        Hotel(
-            hotelId = "H002",
-            name = "The Oberoi",
-            geoCode = GeoCode(28.613939, 77.209023),
-            address = Address("Delhi")
-        ),
-        Hotel(
-            hotelId = "H003",
-            name = "ITC Grand",
-            geoCode = GeoCode(12.971599, 77.594566),
-            address = Address("Bangalore")
-        ),
-        Hotel(
-            hotelId = "H004",
-            name = "Leela Palace",
-            geoCode = GeoCode(13.082680, 80.270718),
-            address = Address("Chennai")
-        )
-    )
+    private val repository = HotelRepository()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.acitivity_hotel_search)
+        setContentView(R.layout.activity_hotel_search)
 
         searchBox = findViewById(R.id.etHotelSearch)
         recycler = findViewById(R.id.recyclerHotels)
 
         recycler.layoutManager = LinearLayoutManager(this)
 
-        setAdapter(allHotels)
+        adapter = HotelAdapter(emptyList()) { hotel ->
+            openHotelDetails(hotel)
+        }
+        recycler.adapter = adapter
 
-        searchBox.addTextChangedListener { editable ->
-            val query = editable.toString().trim().lowercase()
+        searchBox.addTextChangedListener { text ->
+            val cityCode = text.toString().trim().uppercase()
 
-            val filtered = if (query.isEmpty()) {
-                allHotels
-            } else {
-                allHotels.filter { hotel ->
-                    hotel.name.lowercase().contains(query) ||
-                            hotel.address.cityName
-                                ?.lowercase()
-                                ?.contains(query) == true
+            // ✅ Amadeus requires EXACTLY 3-letter city code
+            if (cityCode.length != 3) return@addTextChangedListener
+
+            lifecycleScope.launch {
+                try {
+                    val hotels = repository.searchHotels(cityCode)
+                    adapter.updateList(hotels)
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        this@HotelSearchActivity,
+                        "Failed to load hotels",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
-
-            setAdapter(filtered)
-        }
-    }
-
-    private fun setAdapter(list: List<Hotel>) {
-        recycler.adapter = HotelAdapter(list) { hotel ->
-            openHotelDetails(hotel)
         }
     }
 
     private fun openHotelDetails(hotel: Hotel) {
         val intent = Intent(this, HotelDetailsActivity::class.java).apply {
-            putExtra("hotelId", hotel.hotelId)
             putExtra("hotelName", hotel.name)
-            putExtra("hotelCity", hotel.address.cityName ?: "Unknown")
-            putExtra("lat", hotel.geoCode.latitude)
-            putExtra("lng", hotel.geoCode.longitude)
+            putExtra("hotelCity", hotel.address.cityName ?: "")
         }
         startActivity(intent)
     }

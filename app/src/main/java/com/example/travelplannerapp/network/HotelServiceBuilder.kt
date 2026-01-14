@@ -1,5 +1,5 @@
-package com.example.travelplannerapp.network
-
+import com.example.travelplannerapp.network.AmadeusAuthInterceptor
+import com.example.travelplannerapp.network.TokenManager
 import com.example.travelplannerapp.network.api.HotelApi
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
@@ -17,10 +17,12 @@ object HotelServiceBuilder {
         )
         .build()
 
-    val api: HotelApi = Retrofit.Builder()
-        .baseUrl(BASE_URL)
-        .client(client)
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
-        .create(HotelApi::class.java)
+    val api: HotelApi by lazy {
+        Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(HotelApi::class.java)
+    }
 }
